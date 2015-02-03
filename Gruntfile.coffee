@@ -1,3 +1,5 @@
+to5ify = require '6to5ify'
+
 module.exports = (grunt) ->
 
   # Configurable paths
@@ -15,7 +17,7 @@ module.exports = (grunt) ->
       options:
         watch: false
         keepAlive: false
-        transform: ['partialify', 'dotify']
+        transform: ['partialify', 'dotify', '6to5ify']
         browserifyOptions:
           extensions: ['.js', '.dot']
           insertGlobals: false
