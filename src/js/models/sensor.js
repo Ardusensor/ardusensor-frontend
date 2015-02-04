@@ -9,6 +9,15 @@ module.exports = Model.extend({
     label: 'string',
     last_tick: 'string',
     calibration_constant: 'number'
+  },
+
+  derived: {
+    name: {
+      deps: ['label', 'id'],
+      fn: function () {
+        return this.label ? this.label : this.id.slice(-4);
+      }
+    }
   }
 
 });

@@ -13,8 +13,8 @@ var hub = {
 };
 
 extend(hub, Events);
-hub.initialize();
 
 window.hub = hub;
+hub.debug();
 
 module.exports = hub;

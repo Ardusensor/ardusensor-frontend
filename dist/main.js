@@ -5910,7 +5910,1801 @@ module.exports = KeyTreeStore;
 
 },{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-state/node_modules/underscore/underscore.js":[function(require,module,exports){
 arguments[4]["/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-rest-collection/node_modules/ampersand-collection-underscore-mixin/node_modules/underscore/underscore.js"][0].apply(exports,arguments)
-},{}],"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js":[function(require,module,exports){
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js":[function(require,module,exports){
+;if (typeof window !== "undefined") {  window.ampersand = window.ampersand || {};  window.ampersand["ampersand-view"] = window.ampersand["ampersand-view"] || [];  window.ampersand["ampersand-view"].push("7.2.0");}
+var State = require('ampersand-state');
+var CollectionView = require('ampersand-collection-view');
+var domify = require('domify');
+var _ = require('underscore');
+var events = require('events-mixin');
+var matches = require('matches-selector');
+var bindings = require('ampersand-dom-bindings');
+var getPath = require('get-object-path');
+
+
+function View(attrs) {
+    this.cid = _.uniqueId('view');
+    attrs || (attrs = {});
+    var parent = attrs.parent;
+    delete attrs.parent;
+    BaseState.call(this, attrs, {init: false, parent: parent});
+    this.on('change:el', this._handleElementChange, this);
+    this._parsedBindings = bindings(this.bindings, this);
+    this._initializeBindings();
+    if (attrs.el && !this.autoRender) {
+        this._handleElementChange();
+    }
+    this._initializeSubviews();
+    this.template = attrs.template || this.template;
+    this.initialize.apply(this, arguments);
+    this.set(_.pick(attrs, viewOptions));
+    if (this.autoRender && this.template) {
+        this.render();
+    }
+}
+
+var BaseState = State.extend({
+    dataTypes: {
+        element: {
+            set: function (newVal) {
+                return {
+                    val: newVal,
+                    type: newVal instanceof Element ? 'element' : typeof newVal
+                };
+            },
+            compare: function (el1, el2) {
+                return el1 === el2;
+            }
+        },
+        collection: {
+            set: function (newVal) {
+                return {
+                    val: newVal,
+                    type: newVal && newVal.isCollection ? 'collection' : typeof newVal
+                };
+            },
+            compare: function (currentVal, newVal) {
+                return currentVal === newVal;
+            }
+        }
+    },
+    props: {
+        model: 'state',
+        el: 'element',
+        collection: 'collection'
+    },
+    derived: {
+        rendered: {
+            deps: ['el'],
+            fn: function () {
+                return !!this.el;
+            }
+        },
+        hasData: {
+            deps: ['model'],
+            fn: function () {
+                return !!this.model;
+            }
+        }
+    }
+});
+
+// Cached regex to split keys for `delegate`.
+var delegateEventSplitter = /^(\S+)\s*(.*)$/;
+
+// List of view options to be merged as properties.
+var viewOptions = ['model', 'collection', 'el'];
+
+View.prototype = Object.create(BaseState.prototype);
+
+// Set up all inheritable properties and methods.
+_.extend(View.prototype, {
+    // ## query
+    // Get an single element based on CSS selector scoped to this.el
+    // if you pass an empty string it return `this.el`.
+    // If you pass an element we just return it back.
+    // This lets us use `get` to handle cases where users
+    // can pass a selector or an already selected element.
+    query: function (selector) {
+        if (!selector) return this.el;
+        if (typeof selector === 'string') {
+            if (matches(this.el, selector)) return this.el;
+            return this.el.querySelector(selector) || undefined;
+        }
+        return selector;
+    },
+
+    // ## queryAll
+    // Returns an array of elements based on CSS selector scoped to this.el
+    // if you pass an empty string it return `this.el`. Also includes root
+    // element.
+    queryAll: function (selector) {
+        var res = [];
+        if (!this.el) return res;
+        if (selector === '') return [this.el];
+        if (matches(this.el, selector)) res.push(this.el);
+        return res.concat(Array.prototype.slice.call(this.el.querySelectorAll(selector)));
+    },
+
+    // ## queryByHook
+    // Convenience method for fetching element by it's `data-hook` attribute.
+    // Also tries to match against root element.
+    // Also supports matching 'one' of several space separated hooks.
+    queryByHook: function (hook) {
+        return this.query('[data-hook~="' + hook + '"]');
+    },
+
+    // Initialize is an empty function by default. Override it with your own
+    // initialization logic.
+    initialize: function () {},
+
+    // **render** is the core function that your view can override, its job is
+    // to populate its element (`this.el`), with the appropriate HTML.
+    render: function () {
+        this.renderWithTemplate(this);
+        return this;
+    },
+
+    // Remove this view by taking the element out of the DOM, and removing any
+    // applicable events listeners.
+    remove: function () {
+        var parsedBindings = this._parsedBindings;
+        if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+        if (this._subviews) _.chain(this._subviews).flatten().invoke('remove');
+        this.stopListening();
+        // TODO: Not sure if this is actually necessary.
+        // Just trying to de-reference this potentially large
+        // amount of generated functions to avoid memory leaks.
+        _.each(parsedBindings, function (properties, modelName) {
+            _.each(properties, function (value, key) {
+                delete parsedBindings[modelName][key];
+            });
+            delete parsedBindings[modelName];
+        });
+        this.trigger('remove', this);
+        return this;
+    },
+
+    // Change the view's element (`this.el` property), including event
+    // re-delegation.
+    _handleElementChange: function (element, delegate) {
+        if (this.eventManager) this.eventManager.unbind();
+        this.eventManager = events(this.el, this);
+        this.delegateEvents();
+        this._applyBindingsForKey();
+        return this;
+    },
+
+    // Set callbacks, where `this.events` is a hash of
+    //
+    // *{"event selector": "callback"}*
+    //
+    //     {
+    //       'mousedown .title':  'edit',
+    //       'click .button':     'save',
+    //       'click .open':       function (e) { ... }
+    //     }
+    //
+    // pairs. Callbacks will be bound to the view, with `this` set properly.
+    // Uses event delegation for efficiency.
+    // Omitting the selector binds the event to `this.el`.
+    // This only works for delegate-able events: not `focus`, `blur`, and
+    // not `change`, `submit`, and `reset` in Internet Explorer.
+    delegateEvents: function (events) {
+        if (!(events || (events = _.result(this, 'events')))) return this;
+        this.undelegateEvents();
+        for (var key in events) {
+            this.eventManager.bind(key, events[key]);
+        }
+        return this;
+    },
+
+    // Clears all callbacks previously bound to the view with `delegateEvents`.
+    // You usually don't need to use this, but may wish to if you have multiple
+    // Backbone views attached to the same DOM element.
+    undelegateEvents: function () {
+        this.eventManager.unbind();
+        return this;
+    },
+
+    // ## registerSubview
+    // Pass it a view. This can be anything with a `remove` method
+    registerSubview: function (view) {
+        // Storage for our subviews.
+        this._subviews || (this._subviews = []);
+        this._subviews.push(view);
+        // If view has an 'el' it's a single view not
+        // an array of views registered by renderCollection
+        // so we store a reference to the parent view.
+        if (view.el) view.parent = this;
+        return view;
+    },
+
+    // ## renderSubview
+    // Pass it a view instance and a container element
+    // to render it in. It's `remove` method will be called
+    // when the parent view is destroyed.
+    renderSubview: function (view, container) {
+        if (typeof container === 'string') {
+            container = this.query(container);
+        }
+        this.registerSubview(view);
+        view.render();
+        (container || this.el).appendChild(view.el);
+        return view;
+    },
+
+    _applyBindingsForKey: function (name) {
+        if (!this.el) return;
+        var fns = this._parsedBindings.getGrouped(name);
+        var item;
+        for (item in fns) {
+            fns[item].forEach(function (fn) {
+                fn(this.el, getPath(this, item), _.last(item.split('.')));
+            }, this);
+        }
+    },
+
+    _initializeBindings: function () {
+        if (!this.bindings) return;
+        this.on('all', function (eventName) {
+            if (eventName.slice(0, 7) === 'change:') {
+                this._applyBindingsForKey(eventName.split(':')[1]);
+            }
+        }, this);
+    },
+
+    // ## _initializeSubviews
+    // this is called at setup and grabs declared subviews
+    _initializeSubviews: function () {
+        if (!this.subviews) return;
+        for (var item in this.subviews) {
+            this._parseSubview(this.subviews[item], item);
+        }
+    },
+
+    // ## _parseSubview
+    // helper for parsing out the subview declaration and registering
+    // the `waitFor` if need be.
+    _parseSubview: function (subview, name) {
+        var self = this;
+        var opts = {
+            selector: subview.container || '[data-hook="' + subview.hook + '"]',
+            waitFor: subview.waitFor || '',
+            prepareView: subview.prepareView || function (el) {
+                return new subview.constructor({
+                    el: el,
+                    parent: self
+                });
+            }
+        };
+        function action() {
+            var el, subview;
+            // if not rendered or we can't find our element, stop here.
+            if (!this.el || !(el = this.query(opts.selector))) return;
+            if (!opts.waitFor || getPath(this, opts.waitFor)) {
+                subview = this[name] = opts.prepareView.call(this, el);
+                subview.render();
+                this.registerSubview(subview);
+                this.off('change', action);
+            }
+        }
+        // we listen for main `change` items
+        this.on('change', action, this);
+    },
+
+
+    // Shortcut for doing everything we need to do to
+    // render and fully replace current root element.
+    // Either define a `template` property of your view
+    // or pass in a template directly.
+    // The template can either be a string or a function.
+    // If it's a function it will be passed the `context`
+    // argument.
+    renderWithTemplate: function (context, templateArg) {
+        var template = templateArg || this.template;
+        if (!template) throw new Error('Template string or function needed.');
+        var newDom = _.isString(template) ? template : template.call(this, context || this);
+        if (_.isString(newDom)) newDom = domify(newDom);
+        var parent = this.el && this.el.parentNode;
+        if (parent) parent.replaceChild(newDom, this.el);
+        if (newDom.nodeName === '#document-fragment') throw new Error('Views can only have one root element.');
+        this.el = newDom;
+        return this;
+    },
+
+    // ## cacheElements
+    // This is a shortcut for adding reference to specific elements within your view for
+    // access later. This avoids excessive DOM queries and makes it easier to update
+    // your view if your template changes.
+    //
+    // In your `render` method. Use it like so:
+    //
+    //     render: function () {
+    //       this.basicRender();
+    //       this.cacheElements({
+    //         pages: '#pages',
+    //         chat: '#teamChat',
+    //         nav: 'nav#views ul',
+    //         me: '#me',
+    //         cheatSheet: '#cheatSheet',
+    //         omniBox: '#awesomeSauce'
+    //       });
+    //     }
+    //
+    // Then later you can access elements by reference like so: `this.pages`, or `this.chat`.
+    cacheElements: function (hash) {
+        for (var item in hash) {
+            this[item] = this.query(hash[item]);
+        }
+    },
+
+    // ## listenToAndRun
+    // Shortcut for registering a listener for a model
+    // and also triggering it right away.
+    listenToAndRun: function (object, events, handler) {
+        var bound = _.bind(handler, this);
+        this.listenTo(object, events, bound);
+        bound();
+    },
+
+    // ## animateRemove
+    // Placeholder for if you want to do something special when they're removed.
+    // For example fade it out, etc.
+    // Any override here should call `.remove()` when done.
+    animateRemove: function () {
+        this.remove();
+    },
+
+    // ## renderCollection
+    // Method for rendering a collections with individual views.
+    // Just pass it the collection, and the view to use for the items in the
+    // collection. The collectionView is returned.
+    renderCollection: function (collection, ViewClass, container, opts) {
+        var containerEl = (typeof container === 'string') ? this.query(container) : container;
+        var config = _.extend({
+            collection: collection,
+            el: containerEl || this.el,
+            view: ViewClass,
+            parent: this,
+            viewOptions: {
+                parent: this
+            }
+        }, opts);
+        var collectionView = new CollectionView(config);
+        collectionView.render();
+        return this.registerSubview(collectionView);
+    }
+});
+
+View.extend = BaseState.extend;
+module.exports = View;
+
+},{"ampersand-collection-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-collection-view/ampersand-collection-view.js","ampersand-dom-bindings":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-dom-bindings/ampersand-dom-bindings.js","ampersand-state":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-state/ampersand-state.js","domify":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/domify/index.js","events-mixin":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/index.js","get-object-path":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/get-object-path/index.js","matches-selector":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/matches-selector/index.js","underscore":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/underscore/underscore.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-collection-view/ampersand-collection-view.js":[function(require,module,exports){
+;if (typeof window !== "undefined") {  window.ampersand = window.ampersand || {};  window.ampersand["ampersand-collection-view"] = window.ampersand["ampersand-collection-view"] || [];  window.ampersand["ampersand-collection-view"].push("1.2.1");}
+var _ = require('underscore');
+var BBEvents = require('backbone-events-standalone');
+var ampExtend = require('ampersand-class-extend');
+
+// options
+var options = ['collection', 'el', 'viewOptions', 'view', 'emptyView', 'filter', 'reverse', 'parent'];
+
+
+function CollectionView(spec) {
+    if (!spec) {
+        throw new ReferenceError('Collection view missing required parameters: collection, el');
+    }
+    if (!spec.collection) {
+        throw new ReferenceError('Collection view requires a collection');
+    }
+    if (!spec.el && !this.insertSelf) {
+        throw new ReferenceError('Collection view requires an el');
+    }
+    _.extend(this, _.pick(spec, options));
+    this.views = [];
+    this.listenTo(this.collection, 'add', this._addViewForModel);
+    this.listenTo(this.collection, 'remove', this._removeViewForModel);
+    this.listenTo(this.collection, 'sort', this._rerenderAll);
+    this.listenTo(this.collection, 'refresh reset', this._reset);
+}
+
+_.extend(CollectionView.prototype, BBEvents, {
+    // for view contract compliance
+    render: function () {
+        this._renderAll();
+        return this;
+    },
+    remove: function () {
+        _.invoke(this.views, 'remove');
+        this.stopListening();
+    },
+    _getViewByModel: function (model) {
+        return _.find(this.views, function (view) {
+            return model === view.model;
+        });
+    },
+    _createViewForModel: function (model, renderOpts) {
+        var view = new this.view(_({model: model, collection: this.collection}).extend(this.viewOptions));
+        this.views.push(view);
+        view.parent = this;
+        view.renderedByParentView = true;
+        view.render(renderOpts);
+        return view;
+    },
+    _getOrCreateByModel: function (model, renderOpts) {
+        return this._getViewByModel(model) || this._createViewForModel(model, renderOpts);
+    },
+    _addViewForModel: function (model, collection, options) {
+        var matches = this.filter ? this.filter(model) : true;
+        if (!matches) {
+            return;
+        }
+        if (this.renderedEmptyView) {
+            this.renderedEmptyView.remove();
+            delete this.renderedEmptyView;
+        }
+        var view = this._getOrCreateByModel(model, {containerEl: this.el});
+        if (options && options.rerender) {
+            this._insertView(view);
+        } else {
+            this._insertViewAtIndex(view);
+        }
+    },
+    _insertViewAtIndex: function (view) {
+        if (!view.insertSelf) {
+            var pos = this.collection.indexOf(view.model);
+            var modelToInsertBefore, viewToInsertBefore;
+
+            if (this.reverse) {
+                modelToInsertBefore = this.collection.at(pos - 1);
+            } else {
+                modelToInsertBefore = this.collection.at(pos + 1);
+            }
+
+            viewToInsertBefore = this._getViewByModel(modelToInsertBefore);
+
+            // FIX IE bug (https://developer.mozilla.org/en-US/docs/Web/API/Node.insertBefore)
+            // "In Internet Explorer an undefined value as referenceElement will throw errors, while in rest of the modern browsers, this works fine."
+            if(viewToInsertBefore) {
+                this.el.insertBefore(view.el, viewToInsertBefore && viewToInsertBefore.el);
+            } else {
+                this.el.appendChild(view.el);
+            }
+        }
+    },
+    _insertView: function (view) {
+        if (!view.insertSelf) {
+            if (this.reverse && this.el.firstChild) {
+                this.el.insertBefore(view.el, this.el.firstChild);
+            } else {
+                this.el.appendChild(view.el);
+            }
+        }
+    },
+    _removeViewForModel: function (model) {
+        var view = this._getViewByModel(model);
+        if (!view) {
+            return;
+        }
+        var index = this.views.indexOf(view);
+        if (index !== -1) {
+            // remove it if we found it calling animateRemove
+            // to give user option of gracefully destroying.
+            view = this.views.splice(index, 1)[0];
+            this._removeView(view);
+            if (this.views.length === 0) {
+                this._renderEmptyView();
+            }
+        }
+    },
+    _removeView: function (view) {
+        if (view.animateRemove) {
+            view.animateRemove();
+        } else {
+            view.remove();
+        }
+    },
+    _renderAll: function () {
+        this.collection.each(this._addViewForModel, this);
+        if (this.views.length === 0) {
+            this._renderEmptyView();
+        }
+    },
+    _rerenderAll: function (collection, options) {
+        options = options || {};
+        this.collection.each(function (model) {
+            this._addViewForModel(model, this, _.extend(options, {rerender: true}));
+        }, this);
+    },
+    _renderEmptyView: function() {
+        if (this.emptyView && !this.renderedEmptyView) {
+            var view = this.renderedEmptyView = new this.emptyView();
+            this.el.appendChild(view.render().el);
+        }
+    },
+    _reset: function () {
+        var newViews = this.collection.map(this._getOrCreateByModel, this);
+
+        //Remove existing views from the ui
+        var toRemove = _.difference(this.views, newViews);
+        toRemove.forEach(this._removeView, this);
+
+        //Rerender the full list with the new views
+        this.views = newViews;
+        this._rerenderAll();
+        if (this.views.length === 0) {
+            this._renderEmptyView();
+        }
+    }
+});
+
+CollectionView.extend = ampExtend;
+
+module.exports = CollectionView;
+
+},{"ampersand-class-extend":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-collection-view/node_modules/ampersand-class-extend/ampersand-class-extend.js","backbone-events-standalone":"/Users/serge/workspace/ardusensor-frontend/node_modules/backbone-events-standalone/index.js","underscore":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/underscore/underscore.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-collection-view/node_modules/ampersand-class-extend/ampersand-class-extend.js":[function(require,module,exports){
+arguments[4]["/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-collection/node_modules/ampersand-class-extend/ampersand-class-extend.js"][0].apply(exports,arguments)
+},{"extend-object":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-collection-view/node_modules/ampersand-class-extend/node_modules/extend-object/extend-object.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-collection-view/node_modules/ampersand-class-extend/node_modules/extend-object/extend-object.js":[function(require,module,exports){
+arguments[4]["/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-collection/node_modules/extend-object/extend-object.js"][0].apply(exports,arguments)
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-dom-bindings/ampersand-dom-bindings.js":[function(require,module,exports){
+;if (typeof window !== "undefined") {  window.ampersand = window.ampersand || {};  window.ampersand["ampersand-dom-bindings"] = window.ampersand["ampersand-dom-bindings"] || [];  window.ampersand["ampersand-dom-bindings"].push("3.3.3");}
+var Store = require('key-tree-store');
+var dom = require('ampersand-dom');
+var matchesSelector = require('matches-selector');
+
+
+// returns a key-tree-store of functions
+// that can be applied to any element/model.
+
+// all resulting functions should be called
+// like func(el, value, lastKeyName)
+module.exports = function (bindings, context) {
+    var store = new Store();
+    var key, current;
+
+    for (key in bindings) {
+        current = bindings[key];
+        if (typeof current === 'string') {
+            store.add(key, getBindingFunc({
+                type: 'text',
+                selector: current
+            }));
+        } else if (current.forEach) {
+            current.forEach(function (binding) {
+                store.add(key, getBindingFunc(binding, context));
+            });
+        } else {
+            store.add(key, getBindingFunc(current, context));
+        }
+    }
+
+    return store;
+};
+
+
+var slice = Array.prototype.slice;
+
+function getMatches(el, selector) {
+    if (selector === '') return [el];
+    var matches = [];
+    if (matchesSelector(el, selector)) matches.push(el);
+    return matches.concat(slice.call(el.querySelectorAll(selector)));
+}
+
+function makeArray(val) {
+    return Array.isArray(val) ? val : [val];
+}
+
+function getBindingFunc(binding, context) {
+    var type = binding.type || 'text';
+    var isCustomBinding = typeof type === 'function';
+    var selector = (function () {
+        if (typeof binding.selector === 'string') {
+            return binding.selector;
+        } else if (binding.hook) {
+            return '[data-hook~="' + binding.hook + '"]';
+        } else {
+            return '';
+        }
+    })();
+    var yes = binding.yes;
+    var no = binding.no;
+    var hasYesNo = !!(yes || no);
+
+    // storage variable for previous if relevant
+    var previousValue;
+
+    if (isCustomBinding) {
+        return function (el, value) {
+            getMatches(el, selector).forEach(function (match) {
+                type.call(context, match, value, previousValue);
+            });
+            previousValue = value;
+        };
+    } else if (type === 'text') {
+        return function (el, value) {
+            getMatches(el, selector).forEach(function (match) {
+                dom.text(match, value);
+            });
+        };
+    } else if (type === 'class') {
+        return function (el, value) {
+            getMatches(el, selector).forEach(function (match) {
+                dom.switchClass(match, previousValue, value);
+            });
+            previousValue = value;
+        };
+    } else if (type === 'attribute') {
+        if (!binding.name) throw Error('attribute bindings must have a "name"');
+        return function (el, value) {
+            var names = makeArray(binding.name);
+            getMatches(el, selector).forEach(function (match) {
+                names.forEach(function (name) {
+                    dom.setAttribute(match, name, value);
+                });
+            });
+            previousValue = value;
+        };
+    } else if (type === 'value') {
+        return function (el, value) {
+            getMatches(el, selector).forEach(function (match) {
+                if (!value && value !== 0) value = '';
+                // only apply bindings if element is not currently focused
+                if (document.activeElement !== match) match.value = value;
+            });
+            previousValue = value;
+        };
+    } else if (type === 'booleanClass') {
+        // if there's a `no` case this is actually a switch
+        if (hasYesNo) {
+            yes = makeArray(yes || '');
+            no = makeArray(no || '');
+            return function (el, value) {
+                var prevClass = value ? no : yes;
+                var newClass = value ? yes : no;
+                getMatches(el, selector).forEach(function (match) {
+                    prevClass.forEach(function (pc) {
+                        dom.removeClass(match, pc);
+                    });
+                    newClass.forEach(function (nc) {
+                        dom.addClass(match, nc);
+                    });
+                });
+            };
+        } else {
+            return function (el, value, keyName) {
+                var name = makeArray(binding.name || keyName);
+                getMatches(el, selector).forEach(function (match) {
+                    name.forEach(function (className) {
+                        dom[value ? 'addClass' : 'removeClass'](match, className);
+                    });
+                });
+            };
+        }
+    } else if (type === 'booleanAttribute') {
+        return function (el, value, keyName) {
+            var name = makeArray(binding.name || keyName);
+            getMatches(el, selector).forEach(function (match) {
+                name.forEach(function (attr) {
+                    dom[value ? 'addAttribute' : 'removeAttribute'](match, attr);
+                });
+            });
+        };
+    } else if (type === 'toggle') {
+        // this doesn't require a selector since we can pass yes/no selectors
+        if (hasYesNo) {
+            return function (el, value) {
+                getMatches(el, yes).forEach(function (match) {
+                    dom[value ? 'show' : 'hide'](match);
+                });
+                getMatches(el, no).forEach(function (match) {
+                    dom[value ? 'hide' : 'show'](match);
+                });
+            };
+        } else {
+            return function (el, value) {
+                getMatches(el, selector).forEach(function (match) {
+                    dom[value ? 'show' : 'hide'](match);
+                });
+            };
+        }
+    } else if (type === 'switch') {
+        if (!binding.cases) throw Error('switch bindings must have "cases"');
+        return function (el, value) {
+            for (var item in binding.cases) {
+                getMatches(el, binding.cases[item]).forEach(function (match) {
+                    dom[value === item ? 'show' : 'hide'](match);
+                });
+            }
+        };
+    } else if (type === 'innerHTML') {
+        return function (el, value) {
+            getMatches(el, selector).forEach(function (match) {
+                dom.html(match, value);
+            });
+        };
+    } else if (type === 'switchClass') {
+        if (!binding.cases) throw Error('switchClass bindings must have "cases"');
+        return function (el, value, keyName) {
+            var name = makeArray(binding.name || keyName);
+            for (var item in binding.cases) {
+                getMatches(el, binding.cases[item]).forEach(function (match) {
+                    name.forEach(function (className) {
+                        dom[value === item ? 'addClass' : 'removeClass'](match, className);
+                    });
+                });
+            }
+        };
+    } else {
+        throw new Error('no such binding type: ' + type);
+    }
+}
+
+},{"ampersand-dom":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-dom-bindings/node_modules/ampersand-dom/ampersand-dom.js","key-tree-store":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-dom-bindings/node_modules/key-tree-store/key-tree-store.js","matches-selector":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/matches-selector/index.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-dom-bindings/node_modules/ampersand-dom/ampersand-dom.js":[function(require,module,exports){
+;if (typeof window !== "undefined") {  window.ampersand = window.ampersand || {};  window.ampersand["ampersand-dom"] = window.ampersand["ampersand-dom"] || [];  window.ampersand["ampersand-dom"].push("1.2.7");}
+var dom = module.exports = {
+    text: function (el, val) {
+        el.textContent = getString(val);
+    },
+    // optimize if we have classList
+    addClass: function (el, cls) {
+        cls = getString(cls);
+        if (!cls) return;
+        if (Array.isArray(cls)) {
+            cls.forEach(function(c) {
+                dom.addClass(el, c);
+            });
+        } else if (el.classList) {
+            el.classList.add(cls);
+        } else {
+            if (!hasClass(el, cls)) {
+                if (el.classList) {
+                    el.classList.add(cls);
+                } else {
+                    el.className += ' ' + cls;
+                }
+            }
+        }
+    },
+    removeClass: function (el, cls) {
+        if (Array.isArray(cls)) {
+            cls.forEach(function(c) {
+                dom.removeClass(el, c);
+            });
+        } else if (el.classList) {
+            cls = getString(cls);
+            if (cls) el.classList.remove(cls);
+        } else {
+            // may be faster to not edit unless we know we have it?
+            el.className = el.className.replace(new RegExp('(^|\\b)' + cls.split(' ').join('|') + '(\\b|$)', 'gi'), ' ');
+        }
+    },
+    hasClass: hasClass,
+    switchClass: function (el, prevCls, newCls) {
+        if (prevCls) this.removeClass(el, prevCls);
+        this.addClass(el, newCls);
+    },
+    // makes sure attribute (with no content) is added
+    // if exists it will be cleared of content
+    addAttribute: function (el, attr) {
+        // setting to empty string does same
+        el.setAttribute(attr, '');
+        // Some browsers won't update UI for boolean attributes unless you
+        // set it directly. So we do both
+        if (hasBooleanProperty(el, attr)) el[attr] = true;
+    },
+    // completely removes attribute
+    removeAttribute: function (el, attr) {
+        el.removeAttribute(attr);
+        if (hasBooleanProperty(el, attr)) el[attr] = false;
+    },
+    // sets attribute to string value given, clearing any current value
+    setAttribute: function (el, attr, value) {
+        el.setAttribute(attr, getString(value));
+    },
+    getAttribute: function (el, attr) {
+        return el.getAttribute(attr);
+    },
+    hide: function (el) {
+        if (!isHidden(el)) {
+            storeDisplayStyle(el);
+            hide(el);
+        }
+    },
+    // show element
+    show: function (el) {
+        show(el);
+    },
+    html: function (el, content) {
+        el.innerHTML = content;
+    }
+};
+
+// helpers
+function getString(val) {
+    if (!val && val !== 0) {
+        return '';
+    } else {
+        return val;
+    }
+}
+
+function hasClass(el, cls) {
+    if (el.classList) {
+        return el.classList.contains(cls);
+    } else {
+        return new RegExp('(^| )' + cls + '( |$)', 'gi').test(el.className);
+    }
+}
+
+function hasBooleanProperty(el, prop) {
+    var val = el[prop];
+    return prop in el && (val === true || val === false);
+}
+
+function isHidden (el) {
+    return dom.getAttribute(el, 'data-anddom-hidden') === 'true';
+}
+
+function storeDisplayStyle (el) {
+    dom.setAttribute(el, 'data-anddom-display', el.style.display);
+}
+
+function show (el) {
+    el.style.display = dom.getAttribute(el, 'data-anddom-display') || '';
+    dom.removeAttribute(el, 'data-anddom-hidden');
+}
+
+function hide (el) {
+    dom.setAttribute(el, 'data-anddom-hidden', 'true');
+    el.style.display = 'none';
+}
+
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/ampersand-dom-bindings/node_modules/key-tree-store/key-tree-store.js":[function(require,module,exports){
+var slice = Array.prototype.slice;
+
+// our constructor
+function KeyTreeStore() {
+    this.storage = {};
+}
+
+// add an object to the store
+KeyTreeStore.prototype.add = function (keypath, obj) {
+    var arr = this.storage[keypath] || (this.storage[keypath] = []);
+    arr.push(obj);
+};
+
+// remove an object
+KeyTreeStore.prototype.remove = function (obj) {
+    var path, arr;
+    for (path in this.storage) {
+        arr = this.storage[path];
+        arr.some(function (item, index) {
+            if (item === obj) {
+                arr.splice(index, 1);
+                return true;
+            }
+        });
+    }
+};
+
+// get array of all all relevant functions, without keys
+KeyTreeStore.prototype.get = function (keypath) {
+    var res = [];
+    var key;
+
+    for (key in this.storage) {
+        if (!keypath || keypath === key || key.indexOf(keypath + '.') === 0) {
+            res = res.concat(this.storage[key]);
+        }
+    }
+
+    return res;
+};
+
+// get all results that match keypath but still grouped by key
+KeyTreeStore.prototype.getGrouped = function (keypath) {
+    var res = {};
+    var key;
+
+    for (key in this.storage) {
+        if (!keypath || keypath === key || key.indexOf(keypath + '.') === 0) {
+            res[key] = slice.call(this.storage[key]);
+        }
+    }
+
+    return res;
+};
+
+// get all results that match keypath but still grouped by key
+KeyTreeStore.prototype.getAll = function (keypath) {
+    var res = {};
+    var key;
+
+    for (key in this.storage) {
+        if (keypath === key || key.indexOf(keypath + '.') === 0) {
+            res[key] = slice.call(this.storage[key]);
+        }
+    }
+
+    return res;
+};
+
+// run all matches with optional context
+KeyTreeStore.prototype.run = function (keypath, context) {
+    var args = slice.call(arguments, 2);
+    this.get(keypath).forEach(function (fn) {
+        fn.apply(context || this, args);
+    });
+};
+
+
+
+module.exports = KeyTreeStore;
+
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/domify/index.js":[function(require,module,exports){
+
+/**
+ * Expose `parse`.
+ */
+
+module.exports = parse;
+
+/**
+ * Tests for browser support.
+ */
+
+var div = document.createElement('div');
+// Setup
+div.innerHTML = '  <link/><table></table><a href="/a">a</a><input type="checkbox"/>';
+// Make sure that link elements get serialized correctly by innerHTML
+// This requires a wrapper element in IE
+var innerHTMLBug = !div.getElementsByTagName('link').length;
+div = undefined;
+
+/**
+ * Wrap map from jquery.
+ */
+
+var map = {
+  legend: [1, '<fieldset>', '</fieldset>'],
+  tr: [2, '<table><tbody>', '</tbody></table>'],
+  col: [2, '<table><tbody></tbody><colgroup>', '</colgroup></table>'],
+  // for script/link/style tags to work in IE6-8, you have to wrap
+  // in a div with a non-whitespace character in front, ha!
+  _default: innerHTMLBug ? [1, 'X<div>', '</div>'] : [0, '', '']
+};
+
+map.td =
+map.th = [3, '<table><tbody><tr>', '</tr></tbody></table>'];
+
+map.option =
+map.optgroup = [1, '<select multiple="multiple">', '</select>'];
+
+map.thead =
+map.tbody =
+map.colgroup =
+map.caption =
+map.tfoot = [1, '<table>', '</table>'];
+
+map.text =
+map.circle =
+map.ellipse =
+map.line =
+map.path =
+map.polygon =
+map.polyline =
+map.rect = [1, '<svg xmlns="http://www.w3.org/2000/svg" version="1.1">','</svg>'];
+
+/**
+ * Parse `html` and return a DOM Node instance, which could be a TextNode,
+ * HTML DOM Node of some kind (<div> for example), or a DocumentFragment
+ * instance, depending on the contents of the `html` string.
+ *
+ * @param {String} html - HTML string to "domify"
+ * @param {Document} doc - The `document` instance to create the Node for
+ * @return {DOMNode} the TextNode, DOM Node, or DocumentFragment instance
+ * @api private
+ */
+
+function parse(html, doc) {
+  if ('string' != typeof html) throw new TypeError('String expected');
+
+  // default to the global `document` object
+  if (!doc) doc = document;
+
+  // tag name
+  var m = /<([\w:]+)/.exec(html);
+  if (!m) return doc.createTextNode(html);
+
+  html = html.replace(/^\s+|\s+$/g, ''); // Remove leading/trailing whitespace
+
+  var tag = m[1];
+
+  // body support
+  if (tag == 'body') {
+    var el = doc.createElement('html');
+    el.innerHTML = html;
+    return el.removeChild(el.lastChild);
+  }
+
+  // wrap map
+  var wrap = map[tag] || map._default;
+  var depth = wrap[0];
+  var prefix = wrap[1];
+  var suffix = wrap[2];
+  var el = doc.createElement('div');
+  el.innerHTML = prefix + html + suffix;
+  while (depth--) el = el.lastChild;
+
+  // one element
+  if (el.firstChild == el.lastChild) {
+    return el.removeChild(el.firstChild);
+  }
+
+  // several elements
+  var fragment = doc.createDocumentFragment();
+  while (el.firstChild) {
+    fragment.appendChild(el.removeChild(el.firstChild));
+  }
+
+  return fragment;
+}
+
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/index.js":[function(require,module,exports){
+
+/**
+ * Module dependencies.
+ */
+
+var events = require('component-event');
+var delegate = require('delegate-events');
+var forceCaptureEvents = ['focus', 'blur'];
+
+/**
+ * Expose `Events`.
+ */
+
+module.exports = Events;
+
+/**
+ * Initialize an `Events` with the given
+ * `el` object which events will be bound to,
+ * and the `obj` which will receive method calls.
+ *
+ * @param {Object} el
+ * @param {Object} obj
+ * @api public
+ */
+
+function Events(el, obj) {
+  if (!(this instanceof Events)) return new Events(el, obj);
+  if (!el) throw new Error('element required');
+  if (!obj) throw new Error('object required');
+  this.el = el;
+  this.obj = obj;
+  this._events = {};
+}
+
+/**
+ * Subscription helper.
+ */
+
+Events.prototype.sub = function(event, method, cb){
+  this._events[event] = this._events[event] || {};
+  this._events[event][method] = cb;
+};
+
+/**
+ * Bind to `event` with optional `method` name.
+ * When `method` is undefined it becomes `event`
+ * with the "on" prefix.
+ *
+ * Examples:
+ *
+ *  Direct event handling:
+ *
+ *    events.bind('click') // implies "onclick"
+ *    events.bind('click', 'remove')
+ *    events.bind('click', 'sort', 'asc')
+ *
+ *  Delegated event handling:
+ *
+ *    events.bind('click li > a')
+ *    events.bind('click li > a', 'remove')
+ *    events.bind('click a.sort-ascending', 'sort', 'asc')
+ *    events.bind('click a.sort-descending', 'sort', 'desc')
+ *
+ * @param {String} event
+ * @param {String|function} [method]
+ * @return {Function} callback
+ * @api public
+ */
+
+Events.prototype.bind = function(event, method){
+  var e = parse(event);
+  var el = this.el;
+  var obj = this.obj;
+  var name = e.name;
+  var method = method || 'on' + name;
+  var args = [].slice.call(arguments, 2);
+
+  // callback
+  function cb(){
+    var a = [].slice.call(arguments).concat(args);
+    obj[method].apply(obj, a);
+  }
+
+  // bind
+  if (e.selector) {
+    cb = delegate.bind(el, e.selector, name, cb);
+  } else {
+    events.bind(el, name, cb);
+  }
+
+  // subscription for unbinding
+  this.sub(name, method, cb);
+
+  return cb;
+};
+
+/**
+ * Unbind a single binding, all bindings for `event`,
+ * or all bindings within the manager.
+ *
+ * Examples:
+ *
+ *  Unbind direct handlers:
+ *
+ *     events.unbind('click', 'remove')
+ *     events.unbind('click')
+ *     events.unbind()
+ *
+ * Unbind delegate handlers:
+ *
+ *     events.unbind('click', 'remove')
+ *     events.unbind('click')
+ *     events.unbind()
+ *
+ * @param {String|Function} [event]
+ * @param {String|Function} [method]
+ * @api public
+ */
+
+Events.prototype.unbind = function(event, method){
+  if (0 == arguments.length) return this.unbindAll();
+  if (1 == arguments.length) return this.unbindAllOf(event);
+
+  // no bindings for this event
+  var bindings = this._events[event];
+  var capture = (forceCaptureEvents.indexOf(event) !== -1);
+  if (!bindings) return;
+
+  // no bindings for this method
+  var cb = bindings[method];
+  if (!cb) return;
+
+  events.unbind(this.el, event, cb, capture);
+};
+
+/**
+ * Unbind all events.
+ *
+ * @api private
+ */
+
+Events.prototype.unbindAll = function(){
+  for (var event in this._events) {
+    this.unbindAllOf(event);
+  }
+};
+
+/**
+ * Unbind all events for `event`.
+ *
+ * @param {String} event
+ * @api private
+ */
+
+Events.prototype.unbindAllOf = function(event){
+  var bindings = this._events[event];
+  if (!bindings) return;
+
+  for (var method in bindings) {
+    this.unbind(event, method);
+  }
+};
+
+/**
+ * Parse `event`.
+ *
+ * @param {String} event
+ * @return {Object}
+ * @api private
+ */
+
+function parse(event) {
+  var parts = event.split(/ +/);
+  return {
+    name: parts.shift(),
+    selector: parts.join(' ')
+  }
+}
+
+},{"component-event":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/component-event/index.js","delegate-events":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/delegate-events/index.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/component-event/index.js":[function(require,module,exports){
+var bind = window.addEventListener ? 'addEventListener' : 'attachEvent',
+    unbind = window.removeEventListener ? 'removeEventListener' : 'detachEvent',
+    prefix = bind !== 'addEventListener' ? 'on' : '';
+
+/**
+ * Bind `el` event `type` to `fn`.
+ *
+ * @param {Element} el
+ * @param {String} type
+ * @param {Function} fn
+ * @param {Boolean} capture
+ * @return {Function}
+ * @api public
+ */
+
+exports.bind = function(el, type, fn, capture){
+  el[bind](prefix + type, fn, capture || false);
+  return fn;
+};
+
+/**
+ * Unbind `el` event `type`'s callback `fn`.
+ *
+ * @param {Element} el
+ * @param {String} type
+ * @param {Function} fn
+ * @param {Boolean} capture
+ * @return {Function}
+ * @api public
+ */
+
+exports.unbind = function(el, type, fn, capture){
+  el[unbind](prefix + type, fn, capture || false);
+  return fn;
+};
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/delegate-events/index.js":[function(require,module,exports){
+/**
+ * Module dependencies.
+ */
+
+var closest = require('closest')
+  , event = require('event');
+
+/**
+ * Delegate event `type` to `selector`
+ * and invoke `fn(e)`. A callback function
+ * is returned which may be passed to `.unbind()`.
+ *
+ * @param {Element} el
+ * @param {String} selector
+ * @param {String} type
+ * @param {Function} fn
+ * @param {Boolean} capture
+ * @return {Function}
+ * @api public
+ */
+
+// Some events don't bubble, so we want to bind to the capture phase instead
+// when delegating.
+var forceCaptureEvents = ['focus', 'blur'];
+
+exports.bind = function(el, selector, type, fn, capture){
+  if (forceCaptureEvents.indexOf(type) !== -1) capture = true;
+
+  return event.bind(el, type, function(e){
+    var target = e.target || e.srcElement;
+    e.delegateTarget = closest(target, selector, true, el);
+    if (e.delegateTarget) fn.call(el, e);
+  }, capture);
+};
+
+/**
+ * Unbind event `type`'s callback `fn`.
+ *
+ * @param {Element} el
+ * @param {String} type
+ * @param {Function} fn
+ * @param {Boolean} capture
+ * @api public
+ */
+
+exports.unbind = function(el, type, fn, capture){
+  if (forceCaptureEvents.indexOf(type) !== -1) capture = true;
+
+  event.unbind(el, type, fn, capture);
+};
+
+},{"closest":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/delegate-events/node_modules/closest/index.js","event":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/component-event/index.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/delegate-events/node_modules/closest/index.js":[function(require,module,exports){
+var matches = require('matches-selector')
+
+module.exports = function (element, selector, checkYoSelf) {
+  var parent = checkYoSelf ? element : element.parentNode
+
+  while (parent && parent !== document) {
+    if (matches(parent, selector)) return parent;
+    parent = parent.parentNode
+  }
+}
+
+},{"matches-selector":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/delegate-events/node_modules/closest/node_modules/matches-selector/index.js"}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/events-mixin/node_modules/delegate-events/node_modules/closest/node_modules/matches-selector/index.js":[function(require,module,exports){
+
+/**
+ * Element prototype.
+ */
+
+var proto = Element.prototype;
+
+/**
+ * Vendor function.
+ */
+
+var vendor = proto.matchesSelector
+  || proto.webkitMatchesSelector
+  || proto.mozMatchesSelector
+  || proto.msMatchesSelector
+  || proto.oMatchesSelector;
+
+/**
+ * Expose `match()`.
+ */
+
+module.exports = match;
+
+/**
+ * Match `el` to `selector`.
+ *
+ * @param {Element} el
+ * @param {String} selector
+ * @return {Boolean}
+ * @api public
+ */
+
+function match(el, selector) {
+  if (vendor) return vendor.call(el, selector);
+  var nodes = el.parentNode.querySelectorAll(selector);
+  for (var i = 0; i < nodes.length; ++i) {
+    if (nodes[i] == el) return true;
+  }
+  return false;
+}
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/get-object-path/index.js":[function(require,module,exports){
+module.exports = get;
+
+function get (context, path) {
+  if (path.indexOf('.') == -1 && path.indexOf('[') == -1) {
+    return context[path];
+  }
+
+  var crumbs = path.split(/\.|\[|\]/g);
+  var i = -1;
+  var len = crumbs.length;
+  var result;
+
+  while (++i < len) {
+    if (i == 0) result = context;
+    if (!crumbs[i]) continue;
+    if (result == undefined) break;
+    result = result[crumbs[i]];
+  }
+
+  return result;
+}
+
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/matches-selector/index.js":[function(require,module,exports){
+'use strict';
+
+var proto = Element.prototype;
+var vendor = proto.matches
+  || proto.matchesSelector
+  || proto.webkitMatchesSelector
+  || proto.mozMatchesSelector
+  || proto.msMatchesSelector
+  || proto.oMatchesSelector;
+
+module.exports = match;
+
+/**
+ * Match `el` to `selector`.
+ *
+ * @param {Element} el
+ * @param {String} selector
+ * @return {Boolean}
+ * @api public
+ */
+
+function match(el, selector) {
+  if (vendor) return vendor.call(el, selector);
+  var nodes = el.parentNode.querySelectorAll(selector);
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i] == el) return true;
+  }
+  return false;
+}
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/node_modules/underscore/underscore.js":[function(require,module,exports){
+arguments[4]["/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-model/node_modules/ampersand-sync/node_modules/underscore/underscore.js"][0].apply(exports,arguments)
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/backbone-events-standalone/backbone-events-standalone.js":[function(require,module,exports){
+/**
+ * Standalone extraction of Backbone.Events, no external dependency required.
+ * Degrades nicely when Backone/underscore are already available in the current
+ * global context.
+ *
+ * Note that docs suggest to use underscore's `_.extend()` method to add Events
+ * support to some given object. A `mixin()` method has been added to the Events
+ * prototype to avoid using underscore for that sole purpose:
+ *
+ *     var myEventEmitter = BackboneEvents.mixin({});
+ *
+ * Or for a function constructor:
+ *
+ *     function MyConstructor(){}
+ *     MyConstructor.prototype.foo = function(){}
+ *     BackboneEvents.mixin(MyConstructor.prototype);
+ *
+ * (c) 2009-2013 Jeremy Ashkenas, DocumentCloud Inc.
+ * (c) 2013 Nicolas Perriault
+ */
+/* global exports:true, define, module */
+(function() {
+  var root = this,
+      breaker = {},
+      nativeForEach = Array.prototype.forEach,
+      hasOwnProperty = Object.prototype.hasOwnProperty,
+      slice = Array.prototype.slice,
+      idCounter = 0;
+
+  // Returns a partial implementation matching the minimal API subset required
+  // by Backbone.Events
+  function miniscore() {
+    return {
+      keys: Object.keys || function (obj) {
+        if (typeof obj !== "object" && typeof obj !== "function" || obj === null) {
+          throw new TypeError("keys() called on a non-object");
+        }
+        var key, keys = [];
+        for (key in obj) {
+          if (obj.hasOwnProperty(key)) {
+            keys[keys.length] = key;
+          }
+        }
+        return keys;
+      },
+
+      uniqueId: function(prefix) {
+        var id = ++idCounter + '';
+        return prefix ? prefix + id : id;
+      },
+
+      has: function(obj, key) {
+        return hasOwnProperty.call(obj, key);
+      },
+
+      each: function(obj, iterator, context) {
+        if (obj == null) return;
+        if (nativeForEach && obj.forEach === nativeForEach) {
+          obj.forEach(iterator, context);
+        } else if (obj.length === +obj.length) {
+          for (var i = 0, l = obj.length; i < l; i++) {
+            if (iterator.call(context, obj[i], i, obj) === breaker) return;
+          }
+        } else {
+          for (var key in obj) {
+            if (this.has(obj, key)) {
+              if (iterator.call(context, obj[key], key, obj) === breaker) return;
+            }
+          }
+        }
+      },
+
+      once: function(func) {
+        var ran = false, memo;
+        return function() {
+          if (ran) return memo;
+          ran = true;
+          memo = func.apply(this, arguments);
+          func = null;
+          return memo;
+        };
+      }
+    };
+  }
+
+  var _ = miniscore(), Events;
+
+  // Backbone.Events
+  // ---------------
+
+  // A module that can be mixed in to *any object* in order to provide it with
+  // custom events. You may bind with `on` or remove with `off` callback
+  // functions to an event; `trigger`-ing an event fires all callbacks in
+  // succession.
+  //
+  //     var object = {};
+  //     _.extend(object, Backbone.Events);
+  //     object.on('expand', function(){ alert('expanded'); });
+  //     object.trigger('expand');
+  //
+  Events = {
+
+    // Bind an event to a `callback` function. Passing `"all"` will bind
+    // the callback to all events fired.
+    on: function(name, callback, context) {
+      if (!eventsApi(this, 'on', name, [callback, context]) || !callback) return this;
+      this._events || (this._events = {});
+      var events = this._events[name] || (this._events[name] = []);
+      events.push({callback: callback, context: context, ctx: context || this});
+      return this;
+    },
+
+    // Bind an event to only be triggered a single time. After the first time
+    // the callback is invoked, it will be removed.
+    once: function(name, callback, context) {
+      if (!eventsApi(this, 'once', name, [callback, context]) || !callback) return this;
+      var self = this;
+      var once = _.once(function() {
+        self.off(name, once);
+        callback.apply(this, arguments);
+      });
+      once._callback = callback;
+      return this.on(name, once, context);
+    },
+
+    // Remove one or many callbacks. If `context` is null, removes all
+    // callbacks with that function. If `callback` is null, removes all
+    // callbacks for the event. If `name` is null, removes all bound
+    // callbacks for all events.
+    off: function(name, callback, context) {
+      var retain, ev, events, names, i, l, j, k;
+      if (!this._events || !eventsApi(this, 'off', name, [callback, context])) return this;
+      if (!name && !callback && !context) {
+        this._events = {};
+        return this;
+      }
+
+      names = name ? [name] : _.keys(this._events);
+      for (i = 0, l = names.length; i < l; i++) {
+        name = names[i];
+        if (events = this._events[name]) {
+          this._events[name] = retain = [];
+          if (callback || context) {
+            for (j = 0, k = events.length; j < k; j++) {
+              ev = events[j];
+              if ((callback && callback !== ev.callback && callback !== ev.callback._callback) ||
+                  (context && context !== ev.context)) {
+                retain.push(ev);
+              }
+            }
+          }
+          if (!retain.length) delete this._events[name];
+        }
+      }
+
+      return this;
+    },
+
+    // Trigger one or many events, firing all bound callbacks. Callbacks are
+    // passed the same arguments as `trigger` is, apart from the event name
+    // (unless you're listening on `"all"`, which will cause your callback to
+    // receive the true name of the event as the first argument).
+    trigger: function(name) {
+      if (!this._events) return this;
+      var args = slice.call(arguments, 1);
+      if (!eventsApi(this, 'trigger', name, args)) return this;
+      var events = this._events[name];
+      var allEvents = this._events.all;
+      if (events) triggerEvents(events, args);
+      if (allEvents) triggerEvents(allEvents, arguments);
+      return this;
+    },
+
+    // Tell this object to stop listening to either specific events ... or
+    // to every object it's currently listening to.
+    stopListening: function(obj, name, callback) {
+      var listeners = this._listeners;
+      if (!listeners) return this;
+      var deleteListener = !name && !callback;
+      if (typeof name === 'object') callback = this;
+      if (obj) (listeners = {})[obj._listenerId] = obj;
+      for (var id in listeners) {
+        listeners[id].off(name, callback, this);
+        if (deleteListener) delete this._listeners[id];
+      }
+      return this;
+    }
+
+  };
+
+  // Regular expression used to split event strings.
+  var eventSplitter = /\s+/;
+
+  // Implement fancy features of the Events API such as multiple event
+  // names `"change blur"` and jQuery-style event maps `{change: action}`
+  // in terms of the existing API.
+  var eventsApi = function(obj, action, name, rest) {
+    if (!name) return true;
+
+    // Handle event maps.
+    if (typeof name === 'object') {
+      for (var key in name) {
+        obj[action].apply(obj, [key, name[key]].concat(rest));
+      }
+      return false;
+    }
+
+    // Handle space separated event names.
+    if (eventSplitter.test(name)) {
+      var names = name.split(eventSplitter);
+      for (var i = 0, l = names.length; i < l; i++) {
+        obj[action].apply(obj, [names[i]].concat(rest));
+      }
+      return false;
+    }
+
+    return true;
+  };
+
+  // A difficult-to-believe, but optimized internal dispatch function for
+  // triggering events. Tries to keep the usual cases speedy (most internal
+  // Backbone events have 3 arguments).
+  var triggerEvents = function(events, args) {
+    var ev, i = -1, l = events.length, a1 = args[0], a2 = args[1], a3 = args[2];
+    switch (args.length) {
+      case 0: while (++i < l) (ev = events[i]).callback.call(ev.ctx); return;
+      case 1: while (++i < l) (ev = events[i]).callback.call(ev.ctx, a1); return;
+      case 2: while (++i < l) (ev = events[i]).callback.call(ev.ctx, a1, a2); return;
+      case 3: while (++i < l) (ev = events[i]).callback.call(ev.ctx, a1, a2, a3); return;
+      default: while (++i < l) (ev = events[i]).callback.apply(ev.ctx, args);
+    }
+  };
+
+  var listenMethods = {listenTo: 'on', listenToOnce: 'once'};
+
+  // Inversion-of-control versions of `on` and `once`. Tell *this* object to
+  // listen to an event in another object ... keeping track of what it's
+  // listening to.
+  _.each(listenMethods, function(implementation, method) {
+    Events[method] = function(obj, name, callback) {
+      var listeners = this._listeners || (this._listeners = {});
+      var id = obj._listenerId || (obj._listenerId = _.uniqueId('l'));
+      listeners[id] = obj;
+      if (typeof name === 'object') callback = this;
+      obj[implementation](name, callback, this);
+      return this;
+    };
+  });
+
+  // Aliases for backwards compatibility.
+  Events.bind   = Events.on;
+  Events.unbind = Events.off;
+
+  // Mixin utility
+  Events.mixin = function(proto) {
+    var exports = ['on', 'once', 'off', 'trigger', 'stopListening', 'listenTo',
+                   'listenToOnce', 'bind', 'unbind'];
+    _.each(exports, function(name) {
+      proto[name] = this[name];
+    }, this);
+    return proto;
+  };
+
+  // Export Events as BackboneEvents depending on current context
+  if (typeof define === "function") {
+    define(function() {
+      return Events;
+    });
+  } else if (typeof exports !== 'undefined') {
+    if (typeof module !== 'undefined' && module.exports) {
+      exports = module.exports = Events;
+    }
+    exports.BackboneEvents = Events;
+  } else {
+    root.BackboneEvents = Events;
+  }
+})(this);
+
+},{}],"/Users/serge/workspace/ardusensor-frontend/node_modules/backbone-events-standalone/index.js":[function(require,module,exports){
+arguments[4]["/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-state/node_modules/backbone-events-standalone/index.js"][0].apply(exports,arguments)
+},{"./backbone-events-standalone":"/Users/serge/workspace/ardusensor-frontend/node_modules/backbone-events-standalone/backbone-events-standalone.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js":[function(require,module,exports){
+"use strict";
+
+var Events = require("backbone-events-standalone");
+var extend = require("amp-extend");
+
+var hub = {
+  debug: function (name) {
+    var self = this;
+    self._trigger = self.trigger;
+    self.trigger = function () {
+      console.log("Hub:", arguments);
+      return self._trigger.apply(self, arguments);
+    };
+  }
+};
+
+extend(hub, Events);
+
+window.hub = hub;
+hub.debug();
+
+module.exports = hub;
+
+},{"amp-extend":"/Users/serge/workspace/ardusensor-frontend/node_modules/amp-extend/extend.js","backbone-events-standalone":"/Users/serge/workspace/ardusensor-frontend/node_modules/backbone-events-standalone/index.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/core/loader.js":[function(require,module,exports){
+"use strict";
+
+var _slice = Array.prototype.slice;
+var hub = require("./hub.js");
+var session = require("./session.js");
+var Collection = require("ampersand-rest-collection");
+var Model = require("ampersand-model");
+
+var METHODS = ["load", "update", "delete"];
+
+function load(method, name, options) {
+  var successCallback = function (data) {
+    if (options.collection) {
+      session[name] = data;
+    }
+    hub.trigger.apply(hub, ["" + method + ":" + name + ":success"].concat(_slice.call(arguments)));
+  };
+
+  var errorCallback = function () {
+    hub.trigger.apply(hub, ["" + method + ":" + name + ":error"].concat(_slice.call(arguments)));
+  };
+
+  if (method === "load" || method === "update") {
+    if (options.model) {
+      var validError = options.model.validate(options.attributes);
+      if (validError) {
+        error(validError);
+      } else {
+        var isNew = options.model.isNew();
+        options.model.save(options.attributes, {
+          success: function () {
+            if (isNew && options.collection) {
+              options.collection.add(options.model);
+            }
+            successCallback.apply(undefined, arguments);
+          },
+          error: errorCallback
+        });
+      }
+    } else if (options.collection) {
+      options.collection.fetch({
+        success: successCallback,
+        error: errorCallback
+      });
+    } else {
+      throw Error("Cannot load this type of object");
+    }
+  } else if (method === "delete") {
+    options.model.destroy({
+      success: function () {
+        if (options.collection) {
+          options.collection.remove(options.model);
+        }
+        successCallback.apply(undefined, arguments);
+      },
+      error: errorCallback
+    });
+  }
+}
+
+function startLoading(event, options) {
+  var eventParts = event.split(":"),
+      method = eventParts[0],
+      name = eventParts[1];
+  if (METHODS.indexOf(method) > -1 && eventParts.indexOf("success") < 0 && eventParts.indexOf("error") < 0) {
+    load(method, name, options);
+  }
+}
+
+hub.on("all", startLoading);
+
+},{"./hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","./session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","ampersand-model":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-model/ampersand-model.js","ampersand-rest-collection":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-rest-collection/ampersand-rest-collection.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js":[function(require,module,exports){
 "use strict";
 
 module.exports = window.session = {};
@@ -5919,13 +7713,14 @@ module.exports = window.session = {};
 "use strict";
 
 var Router = require("./routers/router.js");
+require("./core/loader.js");
 
 document.addEventListener("DOMContentLoaded", function (event) {
   var router = new Router();
   router.history.start();
 });
 
-},{"./routers/router.js":"/Users/serge/workspace/ardusensor-frontend/src/js/routers/router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/models/sensor.js":[function(require,module,exports){
+},{"./core/loader.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/loader.js","./routers/router.js":"/Users/serge/workspace/ardusensor-frontend/src/js/routers/router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/models/sensor.js":[function(require,module,exports){
 "use strict";
 
 var Model = require("ampersand-model");
@@ -5939,6 +7734,15 @@ module.exports = Model.extend({
     label: "string",
     last_tick: "string",
     calibration_constant: "number"
+  },
+
+  derived: {
+    name: {
+      deps: ["label", "id"],
+      fn: function () {
+        return this.label ? this.label : this.id.slice(-4);
+      }
+    }
   }
 
 });
@@ -5966,6 +7770,8 @@ module.exports = Collection.extend({
 var Router = require("ampersand-router");
 var session = require("../core/session.js");
 var SensorCollection = require("../models/sensor_collection.js");
+var hub = require("../core/hub.js");
+var BaseView = require("../views/base_view.js");
 
 module.exports = Router.extend({
 
@@ -5980,10 +7786,72 @@ module.exports = Router.extend({
 
   start: function (coordinatorId) {
     session.coordinatorId = coordinatorId;
-    var sensors = new SensorCollection();
-    sensors.fetch();
+    hub.trigger("load:sensors", { collection: new SensorCollection() });
+    hub.once("load:sensors:success", function (sensors) {
+      var baseView = new BaseView();
+      document.body.innerHTML = "";
+      document.body.appendChild(baseView.render().el);
+    });
   }
 
 });
 
-},{"../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","../models/sensor_collection.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/sensor_collection.js","ampersand-router":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-router/ampersand-router.js"}]},{},["/Users/serge/workspace/ardusensor-frontend/src/js/main.js"]);
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","../models/sensor_collection.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/sensor_collection.js","../views/base_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/base_view.js","ampersand-router":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-router/ampersand-router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/base_view.js":[function(require,module,exports){
+"use strict";
+
+var View = require("ampersand-view");
+var session = require("../core/session.js");
+var hub = require("../core/hub.js");
+var SessionsView = require("./sensors_view.js");
+
+module.exports = View.extend({
+
+  template: require("./templates/base.dot"),
+
+  initialize: function () {},
+
+  render: function () {
+    this.renderWithTemplate();
+    this.renderSubview(new SessionsView());
+    return this;
+  }
+
+});
+
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./sensors_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js","./templates/base.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js":[function(require,module,exports){
+"use strict";
+
+var View = require("ampersand-view");
+var session = require("../core/session.js");
+var hub = require("../core/hub.js");
+
+module.exports = View.extend({
+
+  template: require("./templates/sensors.dot"),
+
+  initialize: function () {},
+
+  render: function () {
+    this.renderWithTemplate({
+      sensors: session.sensors.models
+    });
+    return this;
+  }
+
+});
+
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/sensors.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot":[function(require,module,exports){
+module.exports = function anonymous(it) {
+var out='<div></div>';return out;
+}
+},{}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot":[function(require,module,exports){
+module.exports = function anonymous(it) {
+var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (doNotSkipEncoded) {
+		var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': "&#34;", "'": "&#39;", "/": "&#47;" },
+			matchHTML = doNotSkipEncoded ? /[&<>"'\/]/g : /&(?!#?\w+;)|<|>|"|'|\//g;
+		return function(code) {
+			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
+		};
+	}());var out='<div> ';var arr1=it.sensors;if(arr1){var sensor,index=-1,l1=arr1.length-1;while(index<l1){sensor=arr1[index+=1];out+=' <div>'+encodeHTML( sensor.name )+'</div> ';} } out+='</div>';return out;
+}
+},{}]},{},["/Users/serge/workspace/ardusensor-frontend/src/js/main.js"]);
