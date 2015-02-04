@@ -14,7 +14,7 @@ You might need to use `sudo npm install`.
 ## Usage
 ### Run the Grunt build script in watch mode
 ```sh
-grunt watch
+grunt run
 ```
 ### Run the proxy server
 ```sh
