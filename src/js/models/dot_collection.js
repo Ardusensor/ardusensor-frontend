@@ -24,7 +24,16 @@ module.exports = Collection.extend({
       return _.isNumber(dot.temperature);
     });
     return _.map(filtered, (dot) => {
-      return [(new Date(dot.datetime)).getTime(), dot.temperature];
+      return [(new Date(dot.datetime)).getTime(), Math.round(dot.temperature)];
+    });
+  },
+
+  humidities: function () {
+    var filtered = _.filter(this.models, (dot) => {
+      return _.isNumber(dot.sensor2);
+    });
+    return _.map(filtered, (dot) => {
+      return [(new Date(dot.datetime)).getTime(), dot.sensor2];
     });
   }
 

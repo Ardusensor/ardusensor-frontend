@@ -1,6 +1,6 @@
 var COLORS = [
-  '#fa777e',//red
   '#94a6e3',//blue
+  '#fa777e',//red
   '#7cd680',//green
   '#88d8d2',//teal
   '#f1925b',//orange

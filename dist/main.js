@@ -18413,8 +18413,8 @@ arguments[4]["/Users/sergeherkul/workspace/ardusensor-frontend/node_modules/ampe
 },{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/core/colors.js":[function(require,module,exports){
 "use strict";
 
-var COLORS = ["#fa777e", //red
-"#94a6e3", //blue
+var COLORS = ["#94a6e3", //blue
+"#fa777e", //red
 "#7cd680", //green
 "#88d8d2", //teal
 "#f1925b", //orange
@@ -18591,7 +18591,16 @@ module.exports = Collection.extend({
       return _.isNumber(dot.temperature);
     });
     return _.map(filtered, function (dot) {
-      return [new Date(dot.datetime).getTime(), dot.temperature];
+      return [new Date(dot.datetime).getTime(), Math.round(dot.temperature)];
+    });
+  },
+
+  humidities: function () {
+    var filtered = _.filter(this.models, function (dot) {
+      return _.isNumber(dot.sensor2);
+    });
+    return _.map(filtered, function (dot) {
+      return [new Date(dot.datetime).getTime(), dot.sensor2];
     });
   }
 
@@ -18771,16 +18780,39 @@ module.exports = View.extend({
       chart: {
         renderTo: this.el
       },
-      series: this.series()
+      yAxis: [{
+        title: {
+          text: "Temperature"
+        },
+        height: "50%"
+      }, {
+        title: {
+          text: "Humidity"
+        },
+        top: "50%",
+        height: "50%" }],
+      series: this.temperatureSeries().concat(this.humiditySeries())
     });
   },
 
-  series: function () {
+  temperatureSeries: function () {
     return _.map(session.sensors.active(), function (sensor) {
       return {
-        name: sensor.name,
+        name: sensor.name + " (temperature)",
         data: sensor.dots.temperatures(),
-        color: sensor.color
+        color: sensor.color,
+        yAxis: 0
+      };
+    });
+  },
+
+  humiditySeries: function () {
+    return _.map(session.sensors.active(), function (sensor) {
+      return {
+        name: sensor.name + " (humidity)",
+        data: sensor.dots.humidities(),
+        color: sensor.color,
+        yAxis: 1
       };
     });
   }

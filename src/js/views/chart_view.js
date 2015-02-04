@@ -30,16 +30,40 @@ module.exports = View.extend({
       chart: {
         renderTo: this.el
       },
-      series: this.series()
+      yAxis: [{
+        title: {
+          text: 'Temperature'
+        },
+        height: '50%'
+      }, {
+        title: {
+          text: 'Humidity'
+        },
+        top: '50%',
+        height: '50%',
+      }],
+      series: this.temperatureSeries().concat(this.humiditySeries())
     });
   },
 
-  series: function () {
+  temperatureSeries: function () {
     return _.map(session.sensors.active(), (sensor) => {
       return {
-        name: sensor.name,
+        name: sensor.name + ' (temperature)',
         data: sensor.dots.temperatures(),
-        color: sensor.color
+        color: sensor.color,
+        yAxis: 0
+      }
+    });
+  },
+
+  humiditySeries: function () {
+    return _.map(session.sensors.active(), (sensor) => {
+      return {
+        name: sensor.name + ' (humidity)',
+        data: sensor.dots.humidities(),
+        color: sensor.color,
+        yAxis: 1
       }
     });
   }
