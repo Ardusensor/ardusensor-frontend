@@ -12,7 +12,6 @@ var current = 0;
 
 module.exports = {
   get: function () {
-    console.log(COLORS[current]);
-    return COLORS[current++];
+    return COLORS[current++ % COLORS.length];
   }
 }
