@@ -18784,13 +18784,13 @@ module.exports = View.extend({
         title: {
           text: "Temperature"
         },
-        height: "50%"
+        height: "47%"
       }, {
         title: {
           text: "Humidity"
         },
-        top: "50%",
-        height: "50%" }],
+        top: "53%",
+        height: "47%" }],
       series: this.temperatureSeries().concat(this.humiditySeries())
     });
   },
@@ -18861,7 +18861,7 @@ module.exports = View.extend({
 
 },{"../core/hub.js":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/core/session.js","./templates/sensor.dot":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot","./templates/sensors.dot":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot","ampersand-view":"/Users/sergeherkul/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/base.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {
-var out='<div></div>';return out;
+var out='<div class="base"></div>';return out;
 }
 },{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {

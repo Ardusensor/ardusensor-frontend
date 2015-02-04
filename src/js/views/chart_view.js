@@ -34,13 +34,13 @@ module.exports = View.extend({
         title: {
           text: 'Temperature'
         },
-        height: '50%'
+        height: '47%'
       }, {
         title: {
           text: 'Humidity'
         },
-        top: '50%',
-        height: '50%',
+        top: '53%',
+        height: '47%',
       }],
       series: this.temperatureSeries().concat(this.humiditySeries())
     });

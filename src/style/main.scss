@@ -1,7 +1,10 @@
 @import './sensors.scss';
+@import './header.scss';
 @import url(https://fonts.googleapis.com/css?family=Open+Sans);
 
 body, select {
   font-family: "Open Sans",Tahoma,Verdana,Segoe,sans-serif;
   color: #444;
+  padding: 1em;
+  box-sizing: border-box;
 }

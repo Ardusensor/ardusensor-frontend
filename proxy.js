@@ -10,7 +10,6 @@ var proxy = httpProxy.createProxyServer({});
 var app = connect();
 app.use(logger('dev'));
 app.use('/api', function (req, res) {
-  console.log('Proxy');
   proxy.web(req, res, {
     target: 'http://www.ardusensor.com/api'
   });
