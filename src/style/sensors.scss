@@ -1,0 +1,20 @@
+.sensor {
+  background: #F4F4F4;
+  -webkit-appearance: none;
+  border: none;
+  border-bottom: 2px solid darken(#F4F4F4, 25%);
+  border-radius: 3px;
+  font-size: 20px;
+  margin: 5px;
+  padding: 2px 10px;
+  font-weight: normal;
+  display: inline-block;
+  cursor: pointer;
+  &:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10)
+  }
+}
+
+.sensor--inactive {
+  opacity: 0.5;
+}

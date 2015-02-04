@@ -1,4 +1,5 @@
 var Model = require('ampersand-model');
+var DotCollection = require('./dot_collection.js');
 
 
 module.exports = Model.extend({
@@ -9,6 +10,17 @@ module.exports = Model.extend({
     label: 'string',
     last_tick: 'string',
     calibration_constant: 'number'
+  },
+
+  collections: {
+    dots: DotCollection
+  },
+
+  session: {
+    active: {
+      default: true,
+      type: 'boolean'
+    }
   },
 
   derived: {

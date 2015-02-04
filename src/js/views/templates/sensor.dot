@@ -1,0 +1,1 @@
+<div class="sensor{{? !it.active }} sensor--inactive{{?}}">{{! it.name }}</div>

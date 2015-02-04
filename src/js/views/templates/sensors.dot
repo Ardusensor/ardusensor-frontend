@@ -1,5 +1,2 @@
 <div>
-  {{~ it.sensors :sensor:index }}
-  <div>{{! sensor.name }}</div>
-  {{~}}
 </div>

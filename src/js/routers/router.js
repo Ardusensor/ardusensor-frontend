@@ -3,6 +3,7 @@ var session = require('../core/session.js');
 var SensorCollection = require('../models/sensor_collection.js');
 var hub = require('../core/hub.js');
 var BaseView = require('../views/base_view.js');
+var DotCollection = require('../models/dot_collection.js');
 
 module.exports = Router.extend({
 
@@ -19,22 +20,14 @@ module.exports = Router.extend({
     session.coordinatorId = coordinatorId;
     hub.trigger('load:sensors', {collection: new SensorCollection()});
     hub.once('load:sensors:success', (sensors) => {
-      var DotCollection = require('../models/dot_collection.js');
-      var dots = new DotCollection([], {sensorId: sensors.models[1].id});
-      dots.fetch({
-        success: () => {
-          var temperatures = dots.temperatures();
-          console.log(temperatures);
-          new Highcharts.StockChart({
-            chart: {
-              renderTo: 'body'
-            },
-            series: [{
-              name: 'foo',
-              data: []
-            }]
-          });
-        }
+      sensors.forEach((sensor) => {
+        var dots = new DotCollection([], {sensorId: sensor.id});
+        dots.fetch({
+          success: () => {
+            sensor.dots = dots;
+            hub.trigger('load:dots:success', sensor.id);
+          }
+        });
       });
       var baseView = new BaseView();
       document.body.innerHTML = '';
