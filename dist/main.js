@@ -18834,7 +18834,8 @@ var SensorView = View.extend({
   template: require("./templates/sensor.dot"),
 
   events: {
-    click: "toggleActive"
+    "click .icon-eye": "toggleActive",
+    "click .icon-edit": "edit"
   },
 
   initialize: function () {
@@ -18861,6 +18862,10 @@ var SensorView = View.extend({
 
       this.model.active = true;
     }
+  },
+
+  edit: function () {
+    alert("edit");
   }
 
 });
@@ -18890,7 +18895,7 @@ var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (d
 		return function(code) {
 			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
 		};
-	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='"> <span class="sensor__color" style="background: '+encodeHTML( it.color )+'"></span> '+encodeHTML( it.name )+'</div>';return out;
+	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='"> <span class="sensor__color" style="background: '+encodeHTML( it.color )+'"></span> '+encodeHTML( it.name )+' <span class="icon-svg icon-eye hover"></span> <span class="icon-svg icon-edit hover"></span></div>';return out;
 }
 },{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {

@@ -7,7 +7,8 @@ var SensorView = View.extend({
   template: require('./templates/sensor.dot'),
 
   events: {
-    'click': 'toggleActive'
+    'click .icon-eye': 'toggleActive',
+    'click .icon-edit': 'edit'
   },
 
   initialize: function () {
@@ -31,6 +32,10 @@ var SensorView = View.extend({
       }
       this.model.active = true;
     }
+  },
+
+  edit: function () {
+    alert('edit');
   }
 
 });

@@ -1,5 +1,6 @@
 @import './sensors.scss';
 @import './header.scss';
+@import './icons.scss';
 @import url(https://fonts.googleapis.com/css?family=Open+Sans);
 
 body, select {
@@ -7,4 +8,8 @@ body, select {
   color: #444;
   padding: 1em;
   box-sizing: border-box;
+}
+
+.hover {
+  cursor: pointer;
 }

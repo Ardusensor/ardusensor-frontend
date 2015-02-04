@@ -1,4 +1,6 @@
 <div class="sensor{{? !it.active }} sensor--inactive{{?}}">
   <span class="sensor__color" style="background: {{! it.color }}"></span>
   {{! it.name }}
+  <span class="icon-svg icon-eye hover"></span>
+  <span class="icon-svg icon-edit hover"></span>
 </div>
