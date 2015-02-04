@@ -18410,6 +18410,27 @@ arguments[4]["/Users/sergeherkul/workspace/ardusensor-frontend/node_modules/ampe
   }
 }.call(this));
 
+},{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/core/colors.js":[function(require,module,exports){
+"use strict";
+
+var COLORS = ["#fa777e", //red
+"#94a6e3", //blue
+"#7cd680", //green
+"#88d8d2", //teal
+"#f1925b", //orange
+"#bb85e1", //purple
+"#ded237"];
+
+var current = 0;
+
+module.exports = {
+  get: function () {
+    console.log(COLORS[current]);
+    return COLORS[current++];
+  }
+};
+//yellow
+
 },{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/core/hub.js":[function(require,module,exports){
 "use strict";
 
@@ -18582,6 +18603,7 @@ module.exports = Collection.extend({
 
 var Model = require("ampersand-model");
 var DotCollection = require("./dot_collection.js");
+var colors = require("../core/colors.js");
 
 
 module.exports = Model.extend({
@@ -18611,12 +18633,18 @@ module.exports = Model.extend({
       fn: function () {
         return this.label ? this.label : this.id.slice(-4);
       }
+    },
+    color: {
+      deps: ["id"],
+      fn: function () {
+        return colors.get();
+      }
     }
   }
 
 });
 
-},{"./dot_collection.js":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/models/dot_collection.js","ampersand-model":"/Users/sergeherkul/workspace/ardusensor-frontend/node_modules/ampersand-model/ampersand-model.js"}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/models/sensor_collection.js":[function(require,module,exports){
+},{"../core/colors.js":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/core/colors.js","./dot_collection.js":"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/models/dot_collection.js","ampersand-model":"/Users/sergeherkul/workspace/ardusensor-frontend/node_modules/ampersand-model/ampersand-model.js"}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/models/sensor_collection.js":[function(require,module,exports){
 "use strict";
 
 var Collection = require("ampersand-rest-collection");
@@ -18740,7 +18768,6 @@ module.exports = View.extend({
   },
 
   build: function () {
-    console.log("build");
     new Highcharts.StockChart({
       chart: {
         renderTo: this.el
@@ -18753,7 +18780,8 @@ module.exports = View.extend({
     return _.map(session.sensors.active(), function (sensor) {
       return {
         name: sensor.name,
-        data: sensor.dots.temperatures()
+        data: sensor.dots.temperatures(),
+        color: sensor.color
       };
     });
   }
@@ -18812,8 +18840,10 @@ var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (d
 		return function(code) {
 			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
 		};
-	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='">'+encodeHTML( it.name )+'</div>';return out;
+	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='"> '+encodeHTML( it.name )+' <span class="sensor__color" style="background: '+encodeHTML( it.color )+'"></span></div>';return out;
 }
 },{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot":[function(require,module,exports){
-arguments[4]["/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/base.dot"][0].apply(exports,arguments)
+module.exports = function anonymous(it) {
+var out='<div class="sensors"></div>';return out;
+}
 },{}]},{},["/Users/sergeherkul/workspace/ardusensor-frontend/src/js/main.js"]);

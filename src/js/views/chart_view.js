@@ -26,7 +26,6 @@ module.exports = View.extend({
   },
 
   build: function () {
-    console.log('build');
     new Highcharts.StockChart({
       chart: {
         renderTo: this.el
@@ -39,7 +38,8 @@ module.exports = View.extend({
     return _.map(session.sensors.active(), (sensor) => {
       return {
         name: sensor.name,
-        data: sensor.dots.temperatures()
+        data: sensor.dots.temperatures(),
+        color: sensor.color
       }
     });
   }
