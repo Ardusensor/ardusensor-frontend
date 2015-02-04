@@ -28,8 +28,11 @@ module.exports = View.extend({
   build: function () {
     new Highcharts.StockChart({
       chart: {
-        renderTo: this.el
+        renderTo: this.el,
+        height: '600'
       },
+      rangeSelector: { enabled: false },
+      exporting: { enabled: false },
       yAxis: [{
         title: {
           text: 'Temperature'

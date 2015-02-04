@@ -18778,8 +18778,11 @@ module.exports = View.extend({
   build: function () {
     new Highcharts.StockChart({
       chart: {
-        renderTo: this.el
+        renderTo: this.el,
+        height: "600"
       },
+      rangeSelector: { enabled: false },
+      exporting: { enabled: false },
       yAxis: [{
         title: {
           text: "Temperature"
@@ -18834,14 +18837,30 @@ var SensorView = View.extend({
     click: "toggleActive"
   },
 
+  initialize: function () {
+    this.listenTo(this.model, "change", this.render);
+  },
+
   render: function () {
     this.renderWithTemplate(this.model);
     return this;
   },
 
   toggleActive: function () {
-    this.model.active = !this.model.active;
-    this.render();
+    if (this.model.active && session.sensors.length !== session.sensors.active().length) {
+      for (var _iterator = session.sensors.models[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) {
+        var sensor = _step.value;
+        sensor.active = true;
+      }
+    } else {
+      for (var _iterator2 = session.sensors.models[Symbol.iterator](), _step2; !(_step2 = _iterator2.next()).done;) {
+        var sensor = _step2.value;
+        if (sensor === this.model) continue;
+        sensor.active = false;
+      }
+
+      this.model.active = true;
+    }
   }
 
 });
@@ -18871,7 +18890,7 @@ var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (d
 		return function(code) {
 			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
 		};
-	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='"> '+encodeHTML( it.name )+' <span class="sensor__color" style="background: '+encodeHTML( it.color )+'"></span></div>';return out;
+	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='"> <span class="sensor__color" style="background: '+encodeHTML( it.color )+'"></span> '+encodeHTML( it.name )+'</div>';return out;
 }
 },{}],"/Users/sergeherkul/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {

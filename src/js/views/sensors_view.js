@@ -10,14 +10,27 @@ var SensorView = View.extend({
     'click': 'toggleActive'
   },
 
+  initialize: function () {
+    this.listenTo(this.model, 'change', this.render);
+  },
+
   render: function () {
     this.renderWithTemplate(this.model);
     return this;
   },
 
   toggleActive: function () {
-    this.model.active = !this.model.active;
-    this.render();
+    if (this.model.active && session.sensors.length !== session.sensors.active().length) {
+      for (var sensor of session.sensors.models) {
+        sensor.active = true;
+      }
+    } else {
+      for (var sensor of session.sensors.models) {
+        if (sensor === this.model) continue;
+        sensor.active = false;
+      }
+      this.model.active = true;
+    }
   }
 
 });

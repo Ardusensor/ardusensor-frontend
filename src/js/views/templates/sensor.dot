@@ -1,4 +1,4 @@
 <div class="sensor{{? !it.active }} sensor--inactive{{?}}">
-  {{! it.name }}
   <span class="sensor__color" style="background: {{! it.color }}"></span>
+  {{! it.name }}
 </div>
