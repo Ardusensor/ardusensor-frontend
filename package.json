@@ -32,10 +32,13 @@
     "grunt-contrib-watch": "^0.6.1",
     "grunt-env": "^0.4.2",
     "grunt-hashres": "^0.4.1",
+    "grunt-sass": "^0.17.0",
     "grunt-text-replace": "^0.4.0",
     "http-proxy": "^1.8.1",
+    "morgan": "^1.5.1",
     "partialify": "^3.1.2",
-    "remapify": "1.1.1"
+    "remapify": "1.1.1",
+    "serve-static": "^1.8.1"
   },
   "scripts": {
     "start": "http-server -p 4567 dist/"

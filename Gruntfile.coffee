@@ -46,12 +46,18 @@ module.exports = (grunt) ->
     #     dest: '<%= path.dist %>/assets/vendor.js'
 
     # SASS into CSS
+    # sass:
+    #   dist:
+    #     options:
+    #       style: 'expanded'
+    #       lineNumbers: true
+    #       sourcemap: 'none'
+    #     files:
+    #       '<%= path.dist %>/main.css': '<%= path.app %>/style/main.scss'
     sass:
+      options:
+        sourceMap: false
       dist:
-        options:
-          style: 'expanded'
-          lineNumbers: true
-          sourcemap: 'none'
         files:
           '<%= path.dist %>/main.css': '<%= path.app %>/style/main.scss'
 
@@ -157,7 +163,7 @@ module.exports = (grunt) ->
   # grunt.loadNpmTasks 'grunt-grunticon'
   grunt.loadNpmTasks 'grunt-contrib-copy'
   grunt.loadNpmTasks 'grunt-browserify'
-  grunt.loadNpmTasks 'grunt-contrib-sass'
+  grunt.loadNpmTasks 'grunt-sass'
   grunt.loadNpmTasks 'grunt-autoprefixer'
   grunt.loadNpmTasks 'grunt-contrib-concat'
   grunt.loadNpmTasks 'grunt-contrib-uglify'

@@ -7,7 +7,7 @@ module.exports = Collection.extend({
 
   model: Sensor,
   url: function () {
-    return `http://ardusensor.com/api/coordinators/${session.coordinatorId}/sensors`;
+    return `/api/coordinators/${session.coordinatorId}/sensors`;
   }
 
 });
