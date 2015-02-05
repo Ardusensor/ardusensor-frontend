@@ -70,7 +70,8 @@
   font-size: 30px;
   outline: 0;
   margin-left: 1em;
-  width: 400px; }
+  width: 400px;
+  padding: 10px; }
   .header__input:hover, .header__input:active, .header__input:focus {
     background: rgba(255, 255, 255, 0.15); }
 
