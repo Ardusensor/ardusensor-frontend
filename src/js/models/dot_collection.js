@@ -15,8 +15,7 @@ module.exports = Collection.extend({
   url: function () {
     var end = Math.floor(Date.now() / 1000)
       , start = Math.floor((Date.now() - 30 * 86400000) / 1000); // 7 days
-    // return `/api/sensors/${this.sensorId}/dots?start=${start}&end=${end}&dots_per_day=24`;
-    return `/api/sensors/${this.sensorId}/dots?start=1420359986&end=1423038386&dots_per_day=24`;
+    return `/api/sensors/${this.sensorId}/dots?start=${start}&end=${end}&dots_per_day=24`;
   },
 
   temperatures: function () {
