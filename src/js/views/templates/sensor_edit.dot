@@ -1,0 +1,7 @@
+<div class="popup">
+  <div class="popup__container">
+    <div class="popup__content">
+      <h1>{{! it.model.name }}</h1>
+    </div>
+  </div>
+</div>

@@ -1,6 +1,7 @@
 var View = require('ampersand-view');
 var session = require('../core/session.js');
 var hub = require('../core/hub.js');
+var SensorEditView = require('./sensor_edit_view.js');
 
 var SensorView = View.extend({
 
@@ -35,7 +36,9 @@ var SensorView = View.extend({
   },
 
   edit: function () {
-    alert('edit');
+    document.body.appendChild(new SensorEditView({
+      model: this.model
+    }).render().el);
   }
 
 });

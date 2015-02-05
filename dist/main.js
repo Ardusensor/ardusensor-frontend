@@ -18936,12 +18936,32 @@ module.exports = View.extend({
 
 });
 
-},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/header.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/header.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js":[function(require,module,exports){
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/header.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/header.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensor_edit_view.js":[function(require,module,exports){
 "use strict";
 
 var View = require("ampersand-view");
 var session = require("../core/session.js");
 var hub = require("../core/hub.js");
+
+module.exports = View.extend({
+
+  template: require("./templates/sensor_edit.dot"),
+
+  render: function () {
+    console.log(this.model.toJSON());
+    this.renderWithTemplate();
+    return this;
+  }
+
+});
+
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/sensor_edit.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor_edit.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js":[function(require,module,exports){
+"use strict";
+
+var View = require("ampersand-view");
+var session = require("../core/session.js");
+var hub = require("../core/hub.js");
+var SensorEditView = require("./sensor_edit_view.js");
 
 var SensorView = View.extend({
 
@@ -18979,7 +18999,9 @@ var SensorView = View.extend({
   },
 
   edit: function () {
-    alert("edit");
+    document.body.appendChild(new SensorEditView({
+      model: this.model
+    }).render().el);
   }
 
 });
@@ -18997,7 +19019,7 @@ module.exports = View.extend({
 
 });
 
-},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/sensor.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot","./templates/sensors.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot":[function(require,module,exports){
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./sensor_edit_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensor_edit_view.js","./templates/sensor.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot","./templates/sensors.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {
 var out='<div class="base"> </div>';return out;
 }
@@ -19020,6 +19042,16 @@ var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (d
 			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
 		};
 	}());var out='<div class="sensor';if(!it.active){out+=' sensor--inactive';}out+='"> <span class="sensor__color" style="background: '+encodeHTML( it.color )+'"></span> '+encodeHTML( it.name )+' <span class="icon-svg icon-eye hover"></span> <span class="icon-svg icon-edit hover"></span></div>';return out;
+}
+},{}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor_edit.dot":[function(require,module,exports){
+module.exports = function anonymous(it) {
+var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (doNotSkipEncoded) {
+		var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': "&#34;", "'": "&#39;", "/": "&#47;" },
+			matchHTML = doNotSkipEncoded ? /[&<>"'\/]/g : /&(?!#?\w+;)|<|>|"|'|\//g;
+		return function(code) {
+			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
+		};
+	}());var out='<div class="popup"> <div class="popup__container"> <div class="popup__content"> <h1>'+encodeHTML( it.model.name )+'</h1> </div> </div></div>';return out;
 }
 },{}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {
