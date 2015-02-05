@@ -18491,8 +18491,8 @@ var METHODS = ["load", "update", "delete"];
 
 function load(method, name, options) {
   var successCallback = function (data) {
-    if (options.collection) {
-      session[name] = data;
+    if (options.success) {
+      options.success(data);
     }
     hub.trigger.apply(hub, ["" + method + ":" + name + ":success"].concat(_slice.call(arguments)));
   };
@@ -18501,30 +18501,30 @@ function load(method, name, options) {
     hub.trigger.apply(hub, ["" + method + ":" + name + ":error"].concat(_slice.call(arguments)));
   };
 
-  if (method === "load" || method === "update") {
-    if (options.model) {
-      var validError = options.model.validate(options.attributes);
-      if (validError) {
-        error(validError);
-      } else {
-        var isNew = options.model.isNew();
-        options.model.save(options.attributes, {
-          success: function () {
-            if (isNew && options.collection) {
-              options.collection.add(options.model);
-            }
-            successCallback.apply(undefined, arguments);
-          },
-          error: errorCallback
-        });
-      }
-    } else if (options.collection) {
-      options.collection.fetch({
-        success: successCallback,
+  if (method === "load") {
+    var target = options.model || options.collection;
+    target.fetch({
+      success: successCallback,
+      error: errorCallback
+    });
+  } else if (method === "update") {
+    var validError;
+    if (options.model.validate) {
+      validError = options.model.validate(options.attributes);
+    }
+    if (validError) {
+      error(validError);
+    } else {
+      var isNew = options.model.isNew();
+      options.model.save(options.attributes, {
+        success: function () {
+          if (isNew && options.collection) {
+            options.collection.add(options.model);
+          }
+          successCallback.apply(undefined, arguments);
+        },
         error: errorCallback
       });
-    } else {
-      throw Error("Cannot load this type of object");
     }
   } else if (method === "delete") {
     options.model.destroy({
@@ -18566,7 +18566,40 @@ document.addEventListener("DOMContentLoaded", function (event) {
   router.history.start();
 });
 
-},{"./core/loader.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/loader.js","./routers/router.js":"/Users/serge/workspace/ardusensor-frontend/src/js/routers/router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/models/dot.js":[function(require,module,exports){
+},{"./core/loader.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/loader.js","./routers/router.js":"/Users/serge/workspace/ardusensor-frontend/src/js/routers/router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/models/coordinator.js":[function(require,module,exports){
+"use strict";
+
+var Model = require("ampersand-model");
+
+
+module.exports = Model.extend({
+
+  props: {
+    id: "string",
+    label: "string",
+    log_url: "string",
+    token: "string" },
+
+  url: function () {
+    if (this.loaded) {
+      return "/api/coordinators/" + this.coordinatorId;
+    } else {
+      this.loaded = true;
+      return "/api/coordinators/" + this.coordinatorId + "/" + this.token;
+    }
+  },
+
+  initialize: function (attributes, _ref) {
+    var coordinatorId = _ref.coordinatorId;
+    var token = _ref.token;
+    this.coordinatorId = coordinatorId;
+    this.token = token;
+  }
+
+});
+// url: 'string'
+
+},{"ampersand-model":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-model/ampersand-model.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/models/dot.js":[function(require,module,exports){
 "use strict";
 
 var Model = require("ampersand-model");
@@ -18710,21 +18743,36 @@ var SensorCollection = require("../models/sensor_collection.js");
 var hub = require("../core/hub.js");
 var BaseView = require("../views/base_view.js");
 var DotCollection = require("../models/dot_collection.js");
+var Coordinator = require("../models/coordinator.js");
 
 module.exports = Router.extend({
 
   routes: {
     "": "home",
-    ":coordinatorId/:trash": "start"
+    ":coordinatorId/:token": "start"
   },
 
   home: function () {
     alert("404, mate");
   },
 
-  start: function (coordinatorId) {
+  start: function (coordinatorId, token) {
     session.coordinatorId = coordinatorId;
-    hub.trigger("load:sensors", { collection: new SensorCollection() });
+    hub.trigger("load:sensors", {
+      collection: new SensorCollection(),
+      success: function (sensors) {
+        session.sensors = sensors;
+      }
+    });
+    hub.trigger("load:coordinator", {
+      model: new Coordinator({}, { coordinatorId: coordinatorId, token: token }),
+      success: function (coordinator) {
+        session.coordinator = coordinator;
+      }
+    });
+    var baseView = new BaseView();
+    document.body.innerHTML = "";
+    document.body.appendChild(baseView.render().el);
     hub.once("load:sensors:success", function (sensors) {
       sensors.forEach(function (sensor) {
         var dots = new DotCollection([], { sensorId: sensor.id });
@@ -18735,22 +18783,20 @@ module.exports = Router.extend({
           }
         });
       });
-      var baseView = new BaseView();
-      document.body.innerHTML = "";
-      document.body.appendChild(baseView.render().el);
     });
   }
 
 });
 
-},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","../models/dot_collection.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/dot_collection.js","../models/sensor_collection.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/sensor_collection.js","../views/base_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/base_view.js","ampersand-router":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-router/ampersand-router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/base_view.js":[function(require,module,exports){
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","../models/coordinator.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/coordinator.js","../models/dot_collection.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/dot_collection.js","../models/sensor_collection.js":"/Users/serge/workspace/ardusensor-frontend/src/js/models/sensor_collection.js","../views/base_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/base_view.js","ampersand-router":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-router/ampersand-router.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/base_view.js":[function(require,module,exports){
 "use strict";
 
 var View = require("ampersand-view");
 var session = require("../core/session.js");
 var hub = require("../core/hub.js");
-var SessionsView = require("./sensors_view.js");
+var SensorsView = require("./sensors_view.js");
 var ChartView = require("./chart_view.js");
+var HeaderView = require("./header_view.js");
 
 module.exports = View.extend({
 
@@ -18759,15 +18805,24 @@ module.exports = View.extend({
   initialize: function () {},
 
   render: function () {
+    var _this = this;
     this.renderWithTemplate();
-    this.renderSubview(new SessionsView());
-    this.renderSubview(new ChartView());
+    this.renderSubview(new HeaderView());
+    if (session.sensors) {
+      this.renderSubview(new SensorsView());
+      this.renderSubview(new ChartView());
+    } else {
+      this.listenToOnce(hub, "load:sensors:success", function () {
+        _this.renderSubview(new SensorsView());
+        _this.renderSubview(new ChartView());
+      });
+    }
     return this;
   }
 
 });
 
-},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./chart_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/chart_view.js","./sensors_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js","./templates/base.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/chart_view.js":[function(require,module,exports){
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./chart_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/chart_view.js","./header_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/header_view.js","./sensors_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js","./templates/base.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/chart_view.js":[function(require,module,exports){
 "use strict";
 
 var View = require("ampersand-view");
@@ -18846,7 +18901,43 @@ module.exports = View.extend({
 
 });
 
-},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./sensors_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js","lodash":"/Users/serge/workspace/ardusensor-frontend/node_modules/lodash/index.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js":[function(require,module,exports){
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./sensors_view.js":"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js","lodash":"/Users/serge/workspace/ardusensor-frontend/node_modules/lodash/index.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/header_view.js":[function(require,module,exports){
+"use strict";
+
+var View = require("ampersand-view");
+var session = require("../core/session.js");
+var hub = require("../core/hub.js");
+
+module.exports = View.extend({
+
+  template: require("./templates/header.dot"),
+
+  events: {
+    "focusout input": "save"
+  },
+
+  initialize: function () {
+    this.listenToOnce(hub, "load:coordinator:success", this.render);
+    this.listenTo(hub, "update:coordinator:success", this.render);
+  },
+
+  render: function () {
+    this.renderWithTemplate(session.coordinator);
+    return this;
+  },
+
+  save: function () {
+    hub.trigger("update:coordinator", {
+      attributes: {
+        label: this.query("input").value
+      },
+      model: session.coordinator
+    });
+  }
+
+});
+
+},{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/header.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/header.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/sensors_view.js":[function(require,module,exports){
 "use strict";
 
 var View = require("ampersand-view");
@@ -18909,7 +19000,17 @@ module.exports = View.extend({
 
 },{"../core/hub.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/hub.js","../core/session.js":"/Users/serge/workspace/ardusensor-frontend/src/js/core/session.js","./templates/sensor.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot","./templates/sensors.dot":"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensors.dot","ampersand-view":"/Users/serge/workspace/ardusensor-frontend/node_modules/ampersand-view/ampersand-view.js"}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/base.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {
-var out='<div class="base"> <div class="icon-svg icon-logo"></div></div>';return out;
+var out='<div class="base"> </div>';return out;
+}
+},{}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/header.dot":[function(require,module,exports){
+module.exports = function anonymous(it) {
+var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (doNotSkipEncoded) {
+		var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': "&#34;", "'": "&#39;", "/": "&#47;" },
+			matchHTML = doNotSkipEncoded ? /[&<>"'\/]/g : /&(?!#?\w+;)|<|>|"|'|\//g;
+		return function(code) {
+			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
+		};
+	}());var out='<div class="header"> <div class="icon-svg icon-logo"></div> ';if(it.label){out+=' <input class="header__input" type="text" value="'+encodeHTML( it.label )+'" placeholder="Name your coordinator.."/> ';}out+='</div>';return out;
 }
 },{}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {
