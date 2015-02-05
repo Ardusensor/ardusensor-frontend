@@ -3,6 +3,12 @@
 @import './icons.scss';
 @import url(https://fonts.googleapis.com/css?family=Open+Sans);
 
+html {
+  background: linear-gradient(135deg, #002CA3 0%, #428bca 100%);
+  background-attachment: fixed;
+  height: 100%;
+}
+
 body, select {
   font-family: "Open Sans",Tahoma,Verdana,Segoe,sans-serif;
   color: #444;
@@ -12,4 +18,14 @@ body, select {
 
 .hover {
   cursor: pointer;
+}
+
+.chart-holder {
+  box-shadow: 0px 0px 4px 0px rgba(0,0,0,0.37);
+}
+
+.icon-logo {
+  height: 80px;
+  width: 84px;
+  margin-bottom: 1em;
 }
