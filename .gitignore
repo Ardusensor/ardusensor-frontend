@@ -41,4 +41,8 @@ bower_components
 .bower-registry
 .bower-tmp
 
+# Shipit deploy file
 shipitfile.js
+
+# Compiled stuff
+dist
