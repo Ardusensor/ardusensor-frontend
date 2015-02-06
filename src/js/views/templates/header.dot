@@ -3,4 +3,7 @@
   {{? it.label }}
   <input class="header__input" type="text" value="{{! it.label }}" placeholder="Name your coordinator.."/>
   {{?}}
+  <a href="{{! it.log_url }}" target="_blank" class="hover">
+    <div class="icon-svg icon-log-light"></div>
+  </a>
 </div>

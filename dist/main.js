@@ -19047,7 +19047,7 @@ var encodeHTML = typeof _encodeHTML !== 'undefined' ? _encodeHTML : (function (d
 		return function(code) {
 			return code ? code.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : "";
 		};
-	}());var out='<div class="header"> <div class="icon-svg icon-logo"></div> ';if(it.label){out+=' <input class="header__input" type="text" value="'+encodeHTML( it.label )+'" placeholder="Name your coordinator.."/> ';}out+='</div>';return out;
+	}());var out='<div class="header"> <div class="icon-svg icon-logo"></div> ';if(it.label){out+=' <input class="header__input" type="text" value="'+encodeHTML( it.label )+'" placeholder="Name your coordinator.."/> ';}out+=' <a href="'+encodeHTML( it.log_url )+'" target="_blank" class="hover"> <div class="icon-svg icon-log-light"></div> </a></div>';return out;
 }
 },{}],"/Users/serge/workspace/ardusensor-frontend/src/js/views/templates/sensor.dot":[function(require,module,exports){
 module.exports = function anonymous(it) {

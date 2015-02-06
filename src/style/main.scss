@@ -20,6 +20,9 @@ body, select {
 
 .hover {
   cursor: pointer;
+  &:hover {
+    opacity: 0.5;
+  }
 }
 
 .chart-holder {
