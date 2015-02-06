@@ -1,0 +1,4 @@
+<div class="sensors__clear hover" {{? it.filterCount === 0 }}style="display: none;"{{?}}>
+  <span class="icon-eye-danger icon-svg"></span>
+  <span>{{! it.filterCount }}</span>
+</div>

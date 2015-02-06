@@ -16,6 +16,21 @@ module.exports = Collection.extend({
     return _.filter(this.models, (sensor) => {
       return sensor.active
     });
+  },
+
+  filterCount: function () {
+    var activeCount = this.active().length;
+    if (this.length !== activeCount) {
+      return activeCount;
+    } else {
+      return 0;
+    }
+  },
+
+  clearFilters: function () {
+    _.map(this.models, (sensor) => {
+      sensor.active = true;
+    });
   }
 
 });
