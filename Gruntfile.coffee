@@ -145,6 +145,7 @@ module.exports = (grunt) ->
         dest: '<%= path.dist %>'
         ext: '.html.gz'
 
+
   # Load tasks
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-contrib-copy'
@@ -159,7 +160,6 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-concurrent'
   grunt.loadNpmTasks 'grunt-contrib-compress'
-  # grunt.loadNpmTasks 'grunt-env'
 
   # Tasks
   grunt.registerTask 'style', ['sass', 'autoprefixer']
@@ -167,4 +167,4 @@ module.exports = (grunt) ->
   grunt.registerTask 'run', ['dev', 'concurrent:watch']
   # Build everything for localhost
   grunt.registerTask 'dev', ['clean:dist', 'copy:index', 'concat:vendor', 'style', 'browserify:dist']
-  grunt.registerTask 'deploy-build', ['dev', 'uglify:main', 'cssmin:main', 'replace:minimized', 'clean:unminimized', 'hashres', 'compress']
+  grunt.registerTask 'deploy', ['dev', 'uglify:main', 'cssmin:main', 'replace:minimized', 'clean:unminimized', 'hashres', 'compress']
