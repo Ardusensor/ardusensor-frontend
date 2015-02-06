@@ -2,6 +2,22 @@
   <div class="popup__container">
     <div class="popup__content">
       <h1>{{! it.model.name }}</h1>
+      <fieldset>
+        <div class="form-group">
+          <label for="id">Sensor ID</label>
+          <span>{{! it.model.id }}</span>
+        </div>
+        <div class="form-group">
+          <label for="label">Label</label>
+          <input id="label" type="text" placeholder="Name this sensor.." value="{{! it.model.label }}">
+        </div>
+        <div class="form-group">
+          <label for="temperature">Temperature</label>
+          <input id="temperature" type="number" step="1" placeholder="Current temperature.." value="{{! it.model.current_temperature }}">
+        </div>
+      </fieldset>
+      <button class="save button--success">Save</button>
+      <button class="close">Close</button>
     </div>
   </div>
 </div>

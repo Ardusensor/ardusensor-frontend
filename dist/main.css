@@ -106,7 +106,9 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   z-index: 1;
-  background-color: rgba(0, 0, 0, 0.2); }
+  background-color: rgba(0, 0, 0, 0.5); }
+  .popup h1 {
+    text-align: center; }
 
 .popup__container {
   display: -webkit-flex;
@@ -122,6 +124,51 @@
       -ms-flex-align: center;
           align-items: center;
   min-height: 100vh; }
+
+.popup__content {
+  background: white;
+  box-sizing: border-box;
+  padding: 1em; }
+
+fieldset {
+  border: none; }
+
+.form-group {
+  margin: 5px 0; }
+  .form-group label {
+    width: 7em;
+    display: inline-block;
+    vertical-align: middle;
+    text-align: right;
+    margin-right: 1em; }
+  .form-group input {
+    font-size: 16px; }
+
+button, input[type=submit], .button {
+  font-size: 16px;
+  white-space: nowrap;
+  display: inline-block;
+  padding: 6px 10px;
+  outline: 0;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: middle;
+  border-radius: 3px;
+  cursor: pointer;
+  border: none;
+  color: white;
+  background: gray; }
+  button.button--inverse, input[type=submit].button--inverse, .button.button--inverse {
+    background: white;
+    color: black; }
+  button.button--danger, input[type=submit].button--danger, .button.button--danger {
+    background: red;
+    color: white; }
+  button.button--success, input[type=submit].button--success, .button.button--success {
+    background: green;
+    color: white; }
+  button:hover, button:active, input[type=submit]:hover, input[type=submit]:active, .button:hover, .button:active {
+    opacity: 0.8; }
 
 html {
   background: linear-gradient(135deg, #002CA3 0%, #428bca 100%);
@@ -139,3 +186,6 @@ body, select {
 
 .chart-holder {
   box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.37); }
+
+h1, h2, h3, h4 {
+  margin: 0; }

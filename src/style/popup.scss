@@ -8,7 +8,10 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   z-index: 1;
-  background-color: rgba(0,0,0,.2);
+  background-color: rgba(0,0,0,0.5);
+  h1 {
+    text-align: center;
+  }
 }
 
 .popup__container {
@@ -17,4 +20,28 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+}
+
+.popup__content {
+  background: white;
+  box-sizing: border-box;
+  padding: 1em;
+}
+
+fieldset {
+  border: none;
+}
+
+.form-group {
+  margin: 5px 0;
+  label {
+    width: 7em;
+    display: inline-block;
+    vertical-align: middle;
+    text-align: right;
+    margin-right: 1em;
+  }
+  input {
+    font-size: 16px;
+  }
 }

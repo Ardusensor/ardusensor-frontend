@@ -1,4 +1,5 @@
 var Model = require('ampersand-model');
+var session = require('../core/session.js');
 
 
 module.exports = Model.extend({
@@ -13,16 +14,11 @@ module.exports = Model.extend({
 
   url: function () {
     if (this.loaded) {
-      return `/api/coordinators/${this.coordinatorId}`;
+      return `/api/coordinators/${session.coordinatorId}`;
     } else {
       this.loaded = true;
-      return `/api/coordinators/${this.coordinatorId}/${this.token}`;
+      return `/api/coordinators/${session.coordinatorId}/${session.token}`;
     }
-  },
-
-  initialize: function (attributes, {coordinatorId, token}) {
-    this.coordinatorId = coordinatorId;
-    this.token = token;
   }
 
 });

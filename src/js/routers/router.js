@@ -19,6 +19,7 @@ module.exports = Router.extend({
 
   start: function (coordinatorId, token) {
     session.coordinatorId = coordinatorId;
+    session.token = token;
     hub.trigger('load:sensors', {
       collection: new SensorCollection(),
       success: (sensors) => {
@@ -26,7 +27,7 @@ module.exports = Router.extend({
       }
     });
     hub.trigger('load:coordinator', {
-      model: new Coordinator({}, {coordinatorId, token}),
+      model: new Coordinator(),
       success: (coordinator) => {
         session.coordinator = coordinator;
       }

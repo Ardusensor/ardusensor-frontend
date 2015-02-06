@@ -2,7 +2,6 @@ var Model = require('ampersand-model');
 var DotCollection = require('./dot_collection.js');
 var colors = require('../core/colors.js');
 
-
 module.exports = Model.extend({
 
   props: {
@@ -10,7 +9,8 @@ module.exports = Model.extend({
     controller_id: 'string',
     label: 'string',
     last_tick: 'string',
-    calibration_constant: 'number'
+    calibration_constant: 'number',
+    current_temperature: 'number'
   },
 
   collections: {
@@ -37,6 +37,10 @@ module.exports = Model.extend({
         return colors.get()
       }
     }
+  },
+
+  url: function () {
+    return `/api/sensors/${this.id}`;
   }
 
 });
