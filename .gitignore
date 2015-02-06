@@ -34,3 +34,9 @@ npm-debug.log
 
 # Sass cache
 .sass-cache
+
+### Bower ###
+bower_components
+.bower-cache
+.bower-registry
+.bower-tmp

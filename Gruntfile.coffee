@@ -33,15 +33,14 @@ module.exports = (grunt) ->
         files:
           '<%= path.dist %>/main.js': [ '<%= path.app %>/js/main.js' ]
 
-    # Concat all vendor libraries into one single file
-    # concat:
-    #   vendor:
-    #     src: [
-    #       'libs/webtoolkit.base64.js'
-    #       'bower/jquery/dist/jquery.js'
-    #       'bower/lodash/dist/lodash.underscore.js'
-    #     ]
-    #     dest: '<%= path.dist %>/assets/vendor.js'
+    #Concat all vendor libraries into one single file
+    concat:
+      vendor:
+        src: [
+          'bower_components/highstock-release/adapters/standalone-framework.js'
+          'bower_components/highstock-release/highstock.js'
+        ]
+        dest: '<%= path.dist %>/vendor.js'
 
     sass:
       options:
@@ -74,7 +73,7 @@ module.exports = (grunt) ->
       main:
         files:
           '<%= path.dist %>/main.min.js': ['<%= path.dist %>/main.js']
-          # '<%= path.dist %>/vendor.min.js': ['<%= path.dist %>/vendor.js']
+          '<%= path.dist %>/vendor.min.js': ['<%= path.dist %>/vendor.js']
 
     # Minimize CSS
     cssmin:
@@ -89,11 +88,11 @@ module.exports = (grunt) ->
         src: ['<%= path.dist %>/index.html']
         dest: '<%= path.dist %>/'
         replacements: [
-            from: /\/assets\/(.+)\.js/g
-            to: '/assets/$1.min.js'
+            from: /\/(.+)\.js/g
+            to: '/$1.min.js'
           ,
-            from: /\/assets\/(.+)\.css/g
-            to: '/assets/$1.min.css'
+            from: /\/(.+)\.css/g
+            to: '/$1.min.css'
         ]
 
     # Append a unique hash to each file based on it's content to force cache reload
@@ -105,7 +104,7 @@ module.exports = (grunt) ->
         options: {}
         src: [
           '<%= path.dist %>/main.min.js'
-          # '<%= path.dist %>/vendor.min.js'
+          '<%= path.dist %>/vendor.min.js'
           '<%= path.dist %>/main.min.css'
           # '<%= path.dist %>/icons.min.css'
         ]
@@ -167,5 +166,5 @@ module.exports = (grunt) ->
   # Watches for changes
   grunt.registerTask 'run', ['dev', 'concurrent:watch']
   # Build everything for localhost
-  grunt.registerTask 'dev', ['clean:dist', 'copy:index', 'style', 'browserify:dist']
-  grunt.registerTask 'deploy', ['dev', 'uglify:main', 'cssmin:main', 'replace:minimized', 'clean:unminimized', 'hashres', 'compress']
+  grunt.registerTask 'dev', ['clean:dist', 'copy:index', 'concat:vendor', 'style', 'browserify:dist']
+  grunt.registerTask 'deploy-build', ['dev', 'uglify:main', 'cssmin:main', 'replace:minimized', 'clean:unminimized', 'hashres', 'compress']

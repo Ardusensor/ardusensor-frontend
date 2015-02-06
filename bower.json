@@ -1,0 +1,7 @@
+{
+  "name": "Ardusensor-frontend",
+  "version": "1.0.0",
+  "dependencies": {
+    "highstock-release": "2.0.4"
+  }
+}
