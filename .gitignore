@@ -40,3 +40,5 @@ bower_components
 .bower-cache
 .bower-registry
 .bower-tmp
+
+shipitfile.js

@@ -38,7 +38,8 @@
     "morgan": "^1.5.1",
     "partialify": "^3.1.2",
     "remapify": "1.1.1",
-    "serve-static": "^1.8.1"
+    "serve-static": "^1.8.1",
+    "shipit-deploy": "^1.1.1"
   },
   "scripts": {
     "start": "node proxy.js"
