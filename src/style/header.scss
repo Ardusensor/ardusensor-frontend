@@ -17,9 +17,11 @@
   color: white;
   font-size: 30px;
   outline: 0;
-  margin-left: 1em;
   width: 400px;
   padding: 10px;
+  margin-left: 1em;
+  margin-right: 1em;
+  flex-grow: 1;
   &:hover, &:active, &:focus {
     background: rgba(255, 255, 255, 0.15);
   }

@@ -71,9 +71,13 @@
   color: white;
   font-size: 30px;
   outline: 0;
-  margin-left: 1em;
   width: 400px;
-  padding: 10px; }
+  padding: 10px;
+  margin-left: 1em;
+  margin-right: 1em;
+  -webkit-flex-grow: 1;
+      -ms-flex-positive: 1;
+          flex-grow: 1; }
   .header__input:hover, .header__input:active, .header__input:focus {
     background: rgba(255, 255, 255, 0.15); }
 
