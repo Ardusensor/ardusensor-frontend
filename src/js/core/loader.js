@@ -1,7 +1,4 @@
 var hub = require('./hub.js');
-var session = require('./session.js');
-var Collection = require('ampersand-rest-collection');
-var Model = require('ampersand-model');
 
 var METHODS = ['load', 'update', 'delete'];
 
