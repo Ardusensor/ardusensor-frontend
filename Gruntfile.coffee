@@ -23,8 +23,6 @@ module.exports = (grunt) ->
           insertGlobals: false
           detectGlobals: false
           debug: false
-        # preBundleCB: (browserify) ->
-        #   browserify.plugin to5ify
       dist:
         files:
           '<%= path.dist %>/main.js': [ '<%= path.app %>/js/main.js' ]
@@ -45,15 +43,6 @@ module.exports = (grunt) ->
     #     ]
     #     dest: '<%= path.dist %>/assets/vendor.js'
 
-    # SASS into CSS
-    # sass:
-    #   dist:
-    #     options:
-    #       style: 'expanded'
-    #       lineNumbers: true
-    #       sourcemap: 'none'
-    #     files:
-    #       '<%= path.dist %>/main.css': '<%= path.app %>/style/main.scss'
     sass:
       options:
         sourceMap: false
@@ -159,8 +148,6 @@ module.exports = (grunt) ->
 
   # Load tasks
   grunt.loadNpmTasks 'grunt-contrib-clean'
-  # grunt.loadNpmTasks 'grunt-svgmin'
-  # grunt.loadNpmTasks 'grunt-grunticon'
   grunt.loadNpmTasks 'grunt-contrib-copy'
   grunt.loadNpmTasks 'grunt-browserify'
   grunt.loadNpmTasks 'grunt-sass'
